@@ -1,0 +1,28 @@
+// Dial-up connection was upgraded to new technology that offers
+// higher bandwidth, but unfortunately has a very low MTU. Still,
+// it is very reliable: No message loss, no corruption, no reordering.
+
+compile = "milestone2.c"
+
+#include "saarland.map"
+
+messagerate = 500ms
+probframecorrupt = 0
+probframeloss = 0
+
+host SB {
+	x = 45288, y = 44424
+	address = 134
+	messagerate = 1ms
+	
+	wan to HOM {
+		bandwidth = 1Mbps
+		propagationdelay = 3450usecs
+		mtu = 96bytes
+	}
+}
+
+host HOM {
+	x = 68544, y = 35424
+	address = 96
+}

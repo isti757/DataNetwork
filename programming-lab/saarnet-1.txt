@@ -1,0 +1,27 @@
+// Building a network in Saarland - your first connection:
+// Dialup modem connection between Saarbrücken and Homburg -
+// reliable (no losses, no corruption, no reordering), but slow.
+// Need to maximize throughput: Should get 6.83 kB/s from SB to HOM.
+
+compile = "milestone1.c"
+
+#include "saarland.map"
+
+messagerate = 500ms
+probframecorrupt = 0
+probframeloss = 0
+
+host SB {
+	x = 45288, y = 44424
+	address = 134
+	messagerate = 1ms
+
+	wan to HOM {
+		propagationdelay = 3450usecs
+	}
+}
+
+host HOM {
+	x = 68544, y = 35424
+	address = 96
+}

@@ -1,0 +1,6 @@
+mapimage = "saarland.gif"
+drawnodes = true
+mapheight = 60120m
+mapwidth = 78408m
+mapscale = 72
+icontitle = "%d. %n: %a"
