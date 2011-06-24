@@ -1,0 +1,10 @@
+
+Creating a new project:
+
+1. Create a custom makefile C project
+
+Project specific:
+
+1. Coding style and indentation: GNU
+2. Documentation tool: doxygen
+
