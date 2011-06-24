@@ -1,10 +1,34 @@
 
 Creating a new project:
 
-1. Create a custom makefile C project
+1. Create a custom makefile C project in the directory DataNetwork 
+2. Put evetything cnet related into the folder DataNetwork/cnet-3.2.3
 
 Project specific:
 
 1. Coding style and indentation: GNU
 2. Documentation tool: doxygen
+3. No need to build, so in Project settings under C/C++ build:
 
+ under Builder settings tab:
+
+ 	uncheck "Use default build command"
+ 	remove the "Build command"
+ 	uncheck "Generate Makefiles automatically"
+ under Behavior tab:
+	uncheck everything
+
+Running the project:
+
+1. Under Run > Run configurations
+
+Under main tab:
+  Project: DataNetwork 
+  C/C++ Application: cnet-3.2.3/cnet
+
+Under arguments tab:
+  programming-lab/saarnet-1.txt
+
+Then simply use the run button to test the code
+  
+  
