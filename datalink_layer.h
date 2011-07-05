@@ -9,6 +9,7 @@
 #define DATALINK_LAYER_H_
 
 #include "frame.h"
+#include "sliding_window.h"
 
 /**
  * Provides :
@@ -17,7 +18,7 @@
  * 3. possibly piggy backing and negative acknowledgements
  */
 
-static MSG lastmsg;
+static PACKET lastmsg;
 static size_t lastlength = 0;
 static CnetTimerID lasttimer = NULLTIMER;
 
@@ -25,7 +26,7 @@ static int ackexpected = 0;
 static int nextframetosend = 0;
 static int frameexpected = 0;
 
-static void transmit_frame(MSG *msg, FRAMEKIND kind, size_t msglen, int seqno) {
+static void transmit_frame(PACKET *msg, FRAMEKIND kind, size_t msglen, int seqno) {
 	FRAME f;
 
 	f.kind = kind;
@@ -48,7 +49,11 @@ static void transmit_frame(MSG *msg, FRAMEKIND kind, size_t msglen, int seqno) {
 
 		timeout = FRAME_SIZE(f) * ((CnetTime) 8000000 / linkinfo[1].bandwidth)
 				+ linkinfo[1].propagationdelay;
-		lasttimer = CNET_start_timer(EV_TIMER1, timeout, 0);
+
+		set_frame_timer(&sender_window, f.seq, timeout);
+
+		break;
+	case DL_NACK:
 		break;
 	}
 	msglen = FRAME_SIZE(f);
@@ -92,13 +97,14 @@ static EVENT_HANDLER(physical_ready) {
 		if (f.seq == frameexpected) {
 			printf("up to application\n");
 			len = f.len;
-			CHECK(CNET_write_application((char *)&f.msg, &len));
+			CHECK(CNET_write_application((char *)get_frame_data(&f), &len));
 			frameexpected = 1 - frameexpected;
 		} else
 			printf("ignored\n");
-		transmit_frame((MSG *) NULL, DL_ACK, 0, f.seq);
+		transmit_frame((PACKET *) NULL, DL_ACK, 0, f.seq);
 		break;
-
+	case DL_NACK:
+		break;
 	}
 }
 
