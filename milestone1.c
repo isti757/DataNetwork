@@ -46,9 +46,9 @@ void draw_frame(CnetEvent ev, CnetTimerID timer, CnetData data)
 }
 
 static EVENT_HANDLER(showstate) {
-	printf(
+	/*printf(
 			"\tackexpected\t= %d\n\tnextframetosend\t= %d\n\tframeexpected\t= %d\n",
-			ackexpected, nextframetosend, frameexpected);
+			ackexpected, nextframetosend, frameexpected);*/
 
 }
 
@@ -58,6 +58,7 @@ EVENT_HANDLER(reboot_node) {
 		exit(1);
 	}
 
+	init_receiver_window(&receiver_window);
 	init_sender_sliding_window(&sender_window);
 
 	CHECK(CNET_set_handler( EV_APPLICATIONREADY, application_ready, 0));

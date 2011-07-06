@@ -18,6 +18,7 @@
  * 3. possibly piggy backing and negative acknowledgements
  */
 
+/*
 static PACKET lastmsg;
 static size_t lastlength = 0;
 static CnetTimerID lasttimer = NULLTIMER;
@@ -25,6 +26,7 @@ static CnetTimerID lasttimer = NULLTIMER;
 static int ackexpected = 0;
 static int nextframetosend = 0;
 static int frameexpected = 0;
+*/
 
 static void transmit_frame(PACKET *msg, FRAMEKIND kind, size_t msglen, int seqno) {
 	FRAME f;
@@ -62,10 +64,12 @@ static void transmit_frame(PACKET *msg, FRAMEKIND kind, size_t msglen, int seqno
 }
 
 static EVENT_HANDLER(timeouts) {
-	if (timer == lasttimer) {
-		printf("timeout, seq=%d\n", ackexpected);
-		transmit_frame(&lastmsg, DL_DATA, lastlength, ackexpected);
-	}
+	int seqno = (int) data;
+
+	stop_frame_timer(&sender_window, seqno);
+
+	printf("timeout, resending data, seq=%d\n", seqno);
+	transmit_frame(get_message(&sender_window, seqno), DL_DATA, PACKET_SIZE((*get_message(&sender_window, seqno))), seqno);
 }
 
 static EVENT_HANDLER(physical_ready) {
@@ -85,23 +89,37 @@ static EVENT_HANDLER(physical_ready) {
 
 	switch (f.kind) {
 	case DL_ACK:
-		if (f.seq == ackexpected) {
-			printf("\t\t\t\tACK received, seq=%d\n", f.seq);
-			CNET_stop_timer(lasttimer);
-			ackexpected = 1 - ackexpected;
+		if (inside_current_window_sender(&sender_window,f.seq)) {
+			while(inside_current_window_sender(&sender_window,f.seq))
+			{
+				decrease_buffered_size(&sender_window);
+				printf("\t\t\t\tACK received, seq=%d\n", f.seq);
+
+				stop_frame_timer(&sender_window, f.seq);
+				increment_first_message_number(&sender_window);
+			}
 			CNET_enable_application(ALLNODES);
 		}
 		break;
 	case DL_DATA:
 		printf("\t\t\t\tDATA received, seq=%d, ", f.seq);
-		if (f.seq == frameexpected) {
-			printf("up to application\n");
+		if (inside_current_window_receiver(&receiver_window, f.seq) && has_arrived(&receiver_window, f.seq) == 0) {
 			len = f.len;
-			CHECK(CNET_write_application((char *)get_frame_data(&f), &len));
-			frameexpected = 1 - frameexpected;
+			put_into_received(&receiver_window, f.seq, f.msg);
+
+			while(has_arrived(&receiver_window, f.seq))
+			{
+				printf("up to application %d \n", receiver_window.first_frame_expected);
+				len = frame_expected_length(&receiver_window, f.seq);
+				CHECK(CNET_write_application((char *)get_expected_frame_data(&receiver_window), &len));
+
+				unmark_arrived(&receiver_window, receiver_window.first_frame_expected);
+			}
 		} else
 			printf("ignored\n");
-		transmit_frame((PACKET *) NULL, DL_ACK, 0, f.seq);
+
+		int acknowledgement_id = (receiver_window.first_frame_expected+receiver_window.buffer_size-1)%receiver_window.buffer_size;
+		transmit_frame((PACKET *) NULL, DL_ACK, 0, acknowledgement_id);
 		break;
 	case DL_NACK:
 		break;
