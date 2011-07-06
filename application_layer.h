@@ -18,7 +18,9 @@ static EVENT_HANDLER(application_ready) {
 		CNET_disable_application(ALLNODES);
 
 	int next_frame = get_next_message_number(&sender_window);
+
 	int next_frame_length = get_next_message_length(&sender_window);
+	CNET_trace_name(&next_frame, "next_frame");
 
 	CHECK(CNET_read_application(&destaddr, get_next_message_data(&sender_window), (size_t*)&next_frame_length));
 

@@ -11,8 +11,8 @@
 #include "frame.h"
 #include "packet.h"
 
-const static int SLIDING_WINDOW_SIZE = 10;
-const static int BUFFER_SIZE = 20;
+const static int SLIDING_WINDOW_SIZE = 5;
+const static int BUFFER_SIZE = 10;
 
 typedef struct
 {
@@ -145,7 +145,7 @@ typedef struct
 	// packets for sending
 	PACKET      *in_packets;
 	// arrived status
-	bool        *arrived;
+	int        *arrived;
 	// timers for incoming frames
 	CnetTimerID *timer;
 
@@ -163,6 +163,11 @@ void init_receiver_window(receiver_sliding_window *rw)
 {
 	rw->buffer_end = SLIDING_WINDOW_SIZE;
 	rw->buffer_size = BUFFER_SIZE;
+	rw->in_packets = malloc(SLIDING_WINDOW_SIZE * sizeof(PACKET));
+	rw->arrived = (int *)malloc(SLIDING_WINDOW_SIZE * sizeof(int));
+	for(int b=0 ; b<SLIDING_WINDOW_SIZE ; b++) {
+		rw->arrived[b] = 0;
+	}
 }
 
 int inside_current_window_receiver(receiver_sliding_window *rw, int msg_id)

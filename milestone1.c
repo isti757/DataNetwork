@@ -46,9 +46,7 @@ void draw_frame(CnetEvent ev, CnetTimerID timer, CnetData data)
 }
 
 static EVENT_HANDLER(showstate) {
-	/*printf(
-			"\tackexpected\t= %d\n\tnextframetosend\t= %d\n\tframeexpected\t= %d\n",
-			ackexpected, nextframetosend, frameexpected);*/
+	printf( "%0*.*f asdfsadf", 8, 4, 2.5 );
 
 }
 
@@ -64,12 +62,14 @@ EVENT_HANDLER(reboot_node) {
 	CHECK(CNET_set_handler( EV_APPLICATIONREADY, application_ready, 0));
 	CHECK(CNET_set_handler( EV_PHYSICALREADY, physical_ready, 0));
 	CHECK(CNET_set_handler( EV_DRAWFRAME, draw_frame, 0));
-	CHECK(CNET_set_handler( EV_TIMER1, timeouts, 0));
+	//CHECK(CNET_set_handler( EV_TIMER1, timeouts, 0));
 	CHECK(CNET_set_handler( EV_DEBUG1, showstate, 0));
 
 	CHECK(CNET_set_debug_string( EV_DEBUG1, "State"));
 
 	if (nodeinfo.nodenumber == 1)
 		CNET_enable_application(ALLNODES);
+
+
 }
 
