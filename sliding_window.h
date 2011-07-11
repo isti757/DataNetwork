@@ -11,8 +11,8 @@
 #include "frame.h"
 #include "packet.h"
 
-const static int SLIDING_WINDOW_SIZE = 5;
-const static int BUFFER_SIZE = 10;
+const static int SLIDING_WINDOW_SIZE = 3;
+const static int BUFFER_SIZE = 6;
 
 typedef struct
 {
@@ -67,6 +67,9 @@ void init_sender_sliding_window(sender_sliding_window *ssw)
 		//ssw->arrived[i] = false;
 		ssw->timer[i] = NULLTIMER;
 	}
+	ssw->next_frame=0;
+	ssw->first_frame=0;
+	ssw->nbuffered=0;
 }
 
 int get_next_message_number(const sender_sliding_window *ssw)
@@ -176,9 +179,9 @@ int inside_current_window_receiver(receiver_sliding_window *rw, int msg_id)
 	int b = msg_id;
 	int c = rw->buffer_end;
 
-	int between1 = (a <= b && b < c);
-	int between2 = (c < a && a <= b);
-	int between3 = (b < c && c < a);
+	int between1 = ((a <= b) && (b < c));
+	int between2 = ((c < a) && (a <= b));
+	int between3 = ((b < c) && (c < a));
 
 	return between1 || between2 || between3;
 }

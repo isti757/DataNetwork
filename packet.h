@@ -17,6 +17,6 @@ typedef struct
 } PACKET;
 
 #define PACKET_HEADER_SIZE sizeof(int)
-#define PACKET_SIZE(p)      (FRAME_HEADER_SIZE + p.len)
+#define PACKET_SIZE(p)      (PACKET_HEADER_SIZE + p->len)
 
 #endif /* PACKET_H_ */
