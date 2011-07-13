@@ -11,8 +11,8 @@
 #include "frame.h"
 #include "packet.h"
 
-const static int SLIDING_WINDOW_SIZE = 3;
-const static int BUFFER_SIZE = 6;
+const static int SLIDING_WINDOW_SIZE = 8;
+const static int BUFFER_SIZE = 16;
 
 typedef struct
 {
@@ -36,10 +36,7 @@ static sender_sliding_window sender_window;
 
 void decrease_buffered_size(sender_sliding_window *ssw)
 {
-	if(ssw->nbuffered > 0)
-		ssw->nbuffered--;
-	else
-		abort();
+	ssw->nbuffered--;
 }
 
 int increase_buffered_size(sender_sliding_window *ssw)
@@ -50,10 +47,9 @@ int increase_buffered_size(sender_sliding_window *ssw)
 	return 1;
 }
 
-int prepare_next_message(sender_sliding_window *ssw)
+void prepare_next_message(sender_sliding_window *ssw)
 {
 	ssw->out_packets[ssw->next_frame%SLIDING_WINDOW_SIZE].len = MAX_MESSAGE_SIZE;
-	return increase_buffered_size(ssw);
 }
 
 void init_sender_sliding_window(sender_sliding_window *ssw)
@@ -106,12 +102,12 @@ char* get_message_data(const sender_sliding_window *ssw, int msg_id)
 
 void increment_next_message_number(sender_sliding_window *ssw)
 {
-	ssw->next_frame = (ssw->next_frame+1)%SLIDING_WINDOW_SIZE;
+	ssw->next_frame = (ssw->next_frame+1)%BUFFER_SIZE;
 }
 
 void increment_first_message_number(sender_sliding_window *ssw)
 {
-	ssw->first_frame = (ssw->first_frame+1)%SLIDING_WINDOW_SIZE;
+	ssw->first_frame = (ssw->first_frame+1)%BUFFER_SIZE;
 }
 
 void set_message_size(sender_sliding_window *ssw, int msg_id, int size)
@@ -135,11 +131,11 @@ int inside_current_window_sender(sender_sliding_window *ssw, int msg_id)
 	int a = ssw->first_frame;
 	int b = msg_id;
 	int c = ssw->next_frame;
-
-	int between1 = (a <= b && b < c);
-	int between2 = (c < a && a <= b);
-	int between3 = (b < c && c < a);
-
+	//printf("a=%d, b=%d, c=%d\n",a,b,c);
+	int between1 = ((a <= b) && (b < c));
+	int between2 = ((c < a) && (a <= b));
+	int between3 = ((b < c) && (c < a));
+	//printf("b1=%d, b2=%d, b3=%d\n",between1,between2,between3);
 	return between1 || between2 || between3;
 }
 
@@ -178,10 +174,12 @@ int inside_current_window_receiver(receiver_sliding_window *rw, int msg_id)
 	int a = rw->first_frame_expected;
 	int b = msg_id;
 	int c = rw->buffer_end;
+	printf("a=%d, b=%d, c=%d\n",a,b,c);
 
 	int between1 = ((a <= b) && (b < c));
 	int between2 = ((c < a) && (a <= b));
 	int between3 = ((b < c) && (c < a));
+	printf("b1=%d, b2=%d, b3=%d\n",between1,between2,between3);
 
 	return between1 || between2 || between3;
 }
@@ -199,8 +197,8 @@ void mark_arrived(receiver_sliding_window *rw, int msg_id)
 void unmark_arrived(receiver_sliding_window *rw, int msg_id)
 {
 	rw->arrived[msg_id%SLIDING_WINDOW_SIZE] = 0;
-	rw->first_frame_expected = (rw->first_frame_expected+1)%SLIDING_WINDOW_SIZE;
-	rw->buffer_end = (rw->buffer_end+1)%SLIDING_WINDOW_SIZE;
+	rw->first_frame_expected = (rw->first_frame_expected+1)%BUFFER_SIZE;
+	rw->buffer_end = (rw->buffer_end+1)%BUFFER_SIZE;
 }
 
 void put_into_received(receiver_sliding_window *rw, int msg_id, PACKET pkt)
@@ -218,5 +216,23 @@ char* get_expected_frame_data(receiver_sliding_window *rw)
 {
 	return rw->in_packets[rw->first_frame_expected%SLIDING_WINDOW_SIZE].data;
 }
+void print_snd(sender_sliding_window *ssw) {
+	printf("=====Sender=====\n");
+	printf("nbuffered=%d\n",ssw->nbuffered);
+	printf("first_frame=%d\n",ssw->first_frame);
+	printf("next_frame=%d\n",ssw->next_frame);
+	printf("=====End of sender=====\n");
+}
 
+void print_rcv(receiver_sliding_window *rsw) {
+	printf("=====Receiver=====\n");
+	printf("first_frame_expected=%d\n",rsw->first_frame_expected);
+	printf("buffer size=%d\n",rsw->buffer_size);
+	printf("buffer_end=%d\n",rsw->buffer_end);
+	printf("=====End of receiver=====\n");
+}
 #endif /* SLIDING_WINDOW_H_ */
+
+
+
+

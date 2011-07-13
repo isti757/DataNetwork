@@ -53,7 +53,7 @@ static void transmit_frame(PACKET *msg, FRAMEKIND kind, size_t msglen, int seqno
 				+ linkinfo[1].propagationdelay;
 
 		//set_frame_timer(&sender_window, f.seq, timeout);
-		CNET_trace_name(&f.seq, "transmitting");
+		//CNET_trace_name(&f.seq, "transmitting");
 		break;
 	case DL_NACK:
 		break;
@@ -89,41 +89,53 @@ static EVENT_HANDLER(physical_ready) {
 	switch (f.kind) {
 	case DL_ACK:
 		printf("ACK received, seq=%d,\n", f.seq);
-		if (inside_current_window_sender(&sender_window,f.seq)) {
+		print_snd(&sender_window);
+		int insideSender=inside_current_window_sender(&sender_window, f.seq);
+		printf("Is inside window=%d\n",insideSender);
+		if (insideSender) {
 			while(inside_current_window_sender(&sender_window,f.seq))
 			{
 				decrease_buffered_size(&sender_window);
-				printf("ACK received, seq=%d\n", f.seq);
+				printf("ACK received, mark in loop");
 
 				//stop_frame_timer(&sender_window, f.seq);
 				increment_first_message_number(&sender_window);
 			}
 			CNET_enable_application(ALLNODES);
+			printf("Enabling application\n");
+			print_snd(&sender_window);
+		} else {
+			printf("Not inside reciever window\n");
+			print_snd(&sender_window);
 		}
+
 		break;
 	case DL_DATA:
 		printf("\t\tDATA received, seq=%d,\n", f.seq);
 		int inside=inside_current_window_receiver(&receiver_window, f.seq);
-		printf("Is inside window=%d\n",inside);
+		//printf("Is inside window=%d\n",inside);
 		int hasArrived=has_arrived(&receiver_window, f.seq);
-		printf("Is arrived?=%d\n",hasArrived);
-
-		if (inside && hasArrived == 0) {
+		//printf("Is arrived?=%d\n",hasArrived);
+		print_rcv(&receiver_window);
+		if (inside && (hasArrived == 0)) {
 			len = f.len;
 			put_into_received(&receiver_window, f.seq, f.msg);
 
-			while(has_arrived(&receiver_window, f.seq))
+			while(has_arrived(&receiver_window, receiver_window.first_frame_expected))
 			{
 				printf("up to application %d \n", receiver_window.first_frame_expected);
-				len = frame_expected_length(&receiver_window, f.seq);
+				len = frame_expected_length(&receiver_window, receiver_window.first_frame_expected);
 				CHECK(CNET_write_application((char *)get_expected_frame_data(&receiver_window), &len));
-				//CHECK(CNET_write_application((char *)f.msg.data, &len));
 				unmark_arrived(&receiver_window, receiver_window.first_frame_expected);
-			}
-		} else
-			printf("ignored frame\n");
 
-		int acknowledgement_id = (receiver_window.first_frame_expected+receiver_window.buffer_size-1)%receiver_window.buffer_size;
+			}
+			print_rcv(&receiver_window);
+		} else {
+			printf("ignored frame %d\n",f.seq);
+			print_rcv(&receiver_window);
+		}
+		//frameexpected + MAXSEQ) % (MAXSEQ+1)
+		int acknowledgement_id = (receiver_window.first_frame_expected+BUFFER_SIZE-1)%BUFFER_SIZE;
 		printf("Sending ACK, id=%d\n",acknowledgement_id);
 		transmit_frame((PACKET *) NULL, DL_ACK, 0, acknowledgement_id);
 		break;
