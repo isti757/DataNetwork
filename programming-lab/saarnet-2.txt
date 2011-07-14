@@ -5,24 +5,20 @@
 compile = "milestone2.c"
 
 #include "saarland.map"
-
-messagerate = 500ms
-probframecorrupt = 0
-probframeloss = 0
+#include "linktypes.txt"
 
 host SB {
-	x = 45288, y = 44424
+	x = 45388, y = 44424
 	address = 134
 	messagerate = 1ms
 	
-	wan to HOM {
-		bandwidth = 1Mbps
-		propagationdelay = 3450usecs
-		mtu = 96bytes
-	}
+	wan to HOM { LINK_LOW_MTU(1, 3450) }
 }
 
 host HOM {
 	x = 68544, y = 35424
 	address = 96
+	messagerate = 500ms
+
+	wan to SB { LINK_LOW_MTU(1, 3450) }
 }

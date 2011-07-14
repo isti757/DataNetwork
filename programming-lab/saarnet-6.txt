@@ -1,0 +1,270 @@
+compile = "milestone3.c"
+
+#include "saarland.map"
+#include "linktypes.txt"
+
+host SB {
+	x = 45388, y = 44424
+	address = 134
+	messagerate = 10ms // ~ 1.6 Mbps
+
+	wan to HOM { LINK_LOW_MTU(1, 3450) }
+	wan to SLS { LINK_GOOD(10, 2622) }
+	wan to IGB { LINK_GOOD(10, 1584) }
+	wan to VK { LINK_STD(5, 1743) }
+}
+
+host IGB {
+	x = 55656, y = 39744
+	address = 185
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to SB { LINK_GOOD(10, 1584) }
+	wan to HOM { LINK_GOOD(10, 1888) }
+	wan to NK { LINK_STD(4, 1144) }
+}
+
+host HOM {
+	x = 68544, y = 35424
+	address = 96
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to SB { LINK_LOW_MTU(1, 3450) }
+	wan to IGB { LINK_GOOD(10, 1888) }
+	wan to NK { LINK_STD(5, 1518) }
+}
+
+host NK {
+	x = 58176, y = 31896
+	address = 170
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to HOM { LINK_STD(5, 1518) }
+	wan to IGB { LINK_STD(4, 1144) }
+	wan to WND { LINK_STD(4, 1797) }
+}
+
+host WND {
+	x = 57024, y = 19080
+	address = 160
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to NK { LINK_STD(4, 1797) }
+	wan to MRP { LINK_STD(2, 1164) }
+}
+
+host SLS {
+	x = 29088, y = 34848
+	address = 182
+	messagerate = 15ms // ~ 1.2 Mbps
+
+	wan to SB { LINK_GOOD(10, 2622) }
+	wan to DIL { LINK_STD(5, 632) }
+	wan to SWB { LINK_STD(4, 568) }
+	wan to WLF { LINK_STD(1, 570) }
+}
+
+host DIL {
+	x = 26712, y = 31032
+	address = 183
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to SLS { LINK_STD(5, 632) }
+	wan to MZG { LINK_STD(5, 1518) }
+	wan to NLB { LINK_STD(4, 660) }
+	wan to WLF { LINK_BAD(1, 380) }
+}
+
+host MZG {
+	x = 19944, y = 22392
+	address = 184
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to DIL { LINK_STD(5, 1518) }
+	wan to BEK { LINK_STD(2, 831) }
+	wan to MTL { LINK_STD(1, 838) }
+}
+
+host VK {
+	x = 33336, y = 40608
+	address = 140
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to SB { LINK_STD(5, 1743) }
+	wan to SWB { LINK_STD(4, 435) }
+	wan to PTL { LINK_STD(3, 700) }
+}
+
+host SWB {
+	x = 31680, y = 38016
+	address = 144
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to VK { LINK_STD(4, 435) }
+	wan to SLS { LINK_STD(4, 568) }
+	wan to WDG { LINK_BAD_K(512, 680) }
+}
+
+host WDG {
+	x = 27288, y = 40032
+	address = 143
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to SWB { LINK_BAD_K(512, 680) }
+	wan to UBH { LINK_BAD_K(256, 596) }
+}
+
+host UBH {
+	x = 24840, y = 43560
+	address = 142
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to WDG { LINK_BAD_K(256, 596) }
+}
+
+host PTL {
+	x = 37656, y = 38088
+	address = 141
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to VK { LINK_STD(3, 700) }
+	wan to HEW { LINK_XXX(3, 866) } // subsidence caused by mining damaged the cable...
+}
+
+host HEW {
+	x = 40824, y = 32832
+	address = 145
+	messagerate = 40ms // ~ 0.4 Mbps
+
+	wan to PTL { LINK_XXX(3, 866) }
+	wan to LEB { LINK_STD(3, 967) }
+}
+
+host LEB {
+	x = 39888, y = 25848
+	address = 148
+	messagerate = 20ms // ~ 0.8 Mbps
+
+	wan to HEW { LINK_STD(3, 967) }
+	wan to NLB { LINK_STD(4, 1329) }
+	wan to EPB { LINK_STD(2, 590) }
+}
+
+host NLB {
+	x = 30600, y = 28296
+	address = 147
+	messagerate = 40ms // ~ 0.4 Mbps
+
+	wan to LEB { LINK_STD(4, 1329) }
+	wan to DIL { LINK_STD(4, 660) }
+}
+
+host WLF {
+	x = 25272, y = 33336
+	address = 190
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to SLS { LINK_STD(1, 570) }
+	wan to DIL { LINK_BAD(1, 380) }
+	wan to LED { LINK_BAD_K(256, 989) }
+	wan to SSB { LINK_STD(2, 610) }
+}
+
+host LED {
+	x = 19080, y = 36792
+	address = 191
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to WLF { LINK_BAD_K(256, 989) }
+	wan to IHN { LINK_BAD_K(256, 240) }
+}
+
+host IHN {
+	x = 17856, y = 35640
+	address = 192
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to LED { LINK_BAD_K(256, 240) }
+}
+
+host SSB {
+	x = 22536, y = 29952
+	address = 193
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to WLF { LINK_STD(2, 610) }
+	wan to RLG { LINK_STD(2, 202) }
+}
+
+host RLG {
+	x = 23040, y = 28656
+	address = 194
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to SSB { LINK_STD(2, 202) }
+	wan to BEK { LINK_STD(2, 429) }
+}
+
+host BEK {
+	x = 24408, y = 25992
+	address = 195
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to RLG { LINK_STD(2, 429) }
+	wan to MZG { LINK_STD(2, 831) }
+}
+
+host EPB {
+	x = 44136, y = 26136
+	address = 151
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to LEB { LINK_STD(2, 590) }
+	wan to MRP { LINK_BAD(3, 935) }
+}
+
+host MRP {
+	x = 49104, y = 21744
+	address = 152
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to EPB { LINK_BAD(3, 935) }
+	wan to WND { LINK_STD(2, 1164) }
+}
+
+host MTL {
+	x = 18216, y = 16632
+	address = 204
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to MZG { LINK_STD(1, 838) }
+	wan to ORZ { LINK_STD(1, 857) }
+}
+
+host ORZ {
+	x = 12456, y = 14688
+	address = 203
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to MTL { LINK_STD(1, 857) }
+	wan to BRG { LINK_STD(1, 931) }
+}
+
+host BRG {
+	x = 5976, y = 16488
+	address = 202
+	messagerate = 80ms // ~ 0.2 Mbps
+
+	wan to ORZ { LINK_STD(1, 931) }
+	wan to PRL { LINK_GOOD_K(256, 563) }
+}
+
+host PRL {
+	x = 2592, y = 18720
+	address = 201
+	messagerate = 75ms // ~ 0.2 Mbps
+
+	wan to BRG { LINK_GOOD_K(256, 563) }
+}
+
+

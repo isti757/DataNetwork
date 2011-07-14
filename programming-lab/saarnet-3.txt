@@ -1,39 +1,31 @@
 // A (cheaper, lossy) connection to SLS is added.
-// We will release additional topology files for the third milestone in the CMS.
 
 compile = "milestone3.c"
 
 #include "saarland.map"
+#include "linktypes.txt"
 
 messagerate = 500ms
 
 host SB {
-	x = 45288, y = 44424
+	x = 45388, y = 44424
 	address = 134
 	messagerate = 1ms
 	
-	wan to HOM {
-		probframecorrupt = 0
-		probframeloss = 0
-		bandwidth = 1Mbps
-		propagationdelay = 3450usecs
-		mtu = 96bytes
-	}
-	wan to SLS {
-		probframecorrupt = 2
-		probframeloss = 1
-		bandwidth = 5Mbps
-		propagationdelay = 2622usecs
-		mtu = 4096bytes
-	}
+	wan to HOM { LINK_LOW_MTU(1, 3450) }
+	wan to SLS { LINK_GOOD(10, 2622) }
 }
 
 host HOM {
 	x = 68544, y = 35424
 	address = 96
+
+	wan to SB { LINK_LOW_MTU(1, 3450) }
 }
 
 host SLS {
 	x = 29088, y = 34848
 	address = 182
+
+	wan to SB { LINK_GOOD(10, 2622) }
 }

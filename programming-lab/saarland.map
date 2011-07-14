@@ -1,6 +1,8 @@
 mapimage = "saarland.gif"
 drawnodes = true
+showcostperframe = true // misusing costperframe to show the links' bandwidths
+ostype = "node"
 mapheight = 60120m
 mapwidth = 78408m
 mapscale = 72
-icontitle = "%d. %n: %a"
+icontitle = "%a" //"%d. %n: %a"

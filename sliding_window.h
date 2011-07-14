@@ -11,8 +11,8 @@
 #include "frame.h"
 #include "packet.h"
 
-const static int SLIDING_WINDOW_SIZE = 8;
-const static int BUFFER_SIZE = 16;
+const static int SLIDING_WINDOW_SIZE = 4;
+const static int BUFFER_SIZE = 8;
 
 typedef struct
 {
