@@ -216,6 +216,7 @@ char* get_expected_frame_data(receiver_sliding_window *rw)
 {
 	return rw->in_packets[rw->first_frame_expected%SLIDING_WINDOW_SIZE].data;
 }
+
 void print_snd(sender_sliding_window *ssw) {
 	printf("=====Sender=====\n");
 	printf("nbuffered=%d\n",ssw->nbuffered);
@@ -231,6 +232,7 @@ void print_rcv(receiver_sliding_window *rsw) {
 	printf("buffer_end=%d\n",rsw->buffer_end);
 	printf("=====End of receiver=====\n");
 }
+
 #endif /* SLIDING_WINDOW_H_ */
 
 

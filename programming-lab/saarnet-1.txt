@@ -6,7 +6,6 @@
 compile = "milestone1.c"
 
 #include "saarland.map"
-#include "linktypes.txt"
 
 probframecorrupt = 0
 probframeloss = 0
@@ -17,7 +16,6 @@ host SB {
 	messagerate = 1ms
 
 	wan to HOM {
-		bandwidth = 56Kbps
 		propagationdelay = 3450usecs
 	}
 }
@@ -28,7 +26,6 @@ host HOM {
 	messagerate = 500ms
 	
 	wan to SB {
-		bandwidth = 56Kbps
 		propagationdelay = 3450usecs
 	}
 }

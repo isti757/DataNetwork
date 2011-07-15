@@ -8,6 +8,8 @@
 #ifndef PACKET_H_
 #define PACKET_H_
 
+#include "debug.h"
+
 #include <cnet.h>
 
 typedef struct
