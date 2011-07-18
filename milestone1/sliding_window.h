@@ -11,8 +11,8 @@
 #include "frame.h"
 #include "packet.h"
 
-const static int SLIDING_WINDOW_SIZE = 4;
-const static int BUFFER_SIZE = 8;
+const static int SLIDING_WINDOW_SIZE = 15;
+const static int BUFFER_SIZE = 30;
 
 typedef struct
 {
@@ -174,12 +174,12 @@ int inside_current_window_receiver(receiver_sliding_window *rw, int msg_id)
 	int a = rw->first_frame_expected;
 	int b = msg_id;
 	int c = rw->buffer_end;
-	printf("a=%d, b=%d, c=%d\n",a,b,c);
+	//printf("a=%d, b=%d, c=%d\n",a,b,c);
 
 	int between1 = ((a <= b) && (b < c));
 	int between2 = ((c < a) && (a <= b));
 	int between3 = ((b < c) && (c < a));
-	printf("b1=%d, b2=%d, b3=%d\n",between1,between2,between3);
+	//printf("b1=%d, b2=%d, b3=%d\n",between1,between2,between3);
 
 	return between1 || between2 || between3;
 }
@@ -222,7 +222,7 @@ void print_snd(sender_sliding_window *ssw) {
 	printf("nbuffered=%d\n",ssw->nbuffered);
 	printf("first_frame=%d\n",ssw->first_frame);
 	printf("next_frame=%d\n",ssw->next_frame);
-	printf("=====End of sender=====\n");
+	printf("=====End of sender=====\n\n");
 }
 
 void print_rcv(receiver_sliding_window *rsw) {
@@ -230,7 +230,7 @@ void print_rcv(receiver_sliding_window *rsw) {
 	printf("first_frame_expected=%d\n",rsw->first_frame_expected);
 	printf("buffer size=%d\n",rsw->buffer_size);
 	printf("buffer_end=%d\n",rsw->buffer_end);
-	printf("=====End of receiver=====\n");
+	printf("=====End of receiver=====\n\n");
 }
 
 #endif /* SLIDING_WINDOW_H_ */

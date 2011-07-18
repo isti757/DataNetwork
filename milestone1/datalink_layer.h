@@ -50,33 +50,43 @@ static void transmit_frame(PACKET *msg, FRAMEKIND kind, size_t msglen, int seqno
 			DEBUG2(" DL_DATA transmitted, seq=%d\n", seqno);
 
 			// retransmit timeout (used to be 8000000, maybe have to change back)
-			retransmit_timeout = FRAME_SIZE(f) * ((CnetTime) 24000000 / linkinfo[1].bandwidth)
+			// measured in microseconds, i.e. 10^-6 of a second
+			// bandwidth is measured in bits per second so multiplied by 8
+			retransmit_timeout = ceil((CnetTime) (float)(8 * 1000000 * FRAME_SIZE(f)) / (float)linkinfo[1].bandwidth)
 					+ linkinfo[1].propagationdelay;
 
 			// disables application layer until the next message is out of the link
-			propagation_timeout = //FRAME_SIZE(f) * ((CnetTime) 1000000 / linkinfo[1].bandwidth)
-								linkinfo[1].propagationdelay;
+			propagation_timeout = (CnetTime)ceil((float)(8 * 1000000 * FRAME_SIZE(f)) / (float)linkinfo[1].bandwidth)+
+								(CnetTime)linkinfo[1].propagationdelay;
 
-			CNET_start_timer(EV_TIMER2, propagation_timeout, f.seq);
+			DEBUG_NODE_STATISTICS();
+
+			printf("frame size: %d\n", FRAME_SIZE(f));
+			printf("bandwidth: %d\n", linkinfo[1].bandwidth);
+			printf("transmission delay : %d\n",  retransmit_timeout);
+			printf("propagation delay : %d\n",  propagation_timeout);
+
+			CNET_start_timer(EV_TIMER2, propagation_timeout, nodeinfo.address);
+
 			CNET_disable_application(ALLNODES);
 
-			//set_frame_timer(&sender_window, f.seq, retransmit_timeout);
+			//set_frame_timer(&sender_window, nodeinfo.address, retransmit_timeout);
 			//CNET_trace_name(&f.seq, "transmitting");
 			break;
 		case DL_NACK:
 			break;
 	}
 	msglen = FRAME_SIZE(f);
-	f.checksum = CNET_ccitt((unsigned char *) &f, (int) msglen);
+//	f.checksum = CNET_ccitt((unsigned char *) &f, (int) msglen);
 
 	CHECK(CNET_write_physical(1, (char *)&f, &msglen));
 }
 
-static EVENT_HANDLER(timeouts) {
+static EVENT_HANDLER(application_timeouts) {
 	CNET_enable_application(ALLNODES);
 }
 
-static EVENT_HANDLER(application_timeouts) {
+static EVENT_HANDLER(timeouts) {
 	int seqno = (int) data;
 	seqno--;
 	//stop_frame_timer(&sender_window, seqno);
@@ -89,15 +99,15 @@ static EVENT_HANDLER(physical_ready) {
 	DEBUG1("recieving on physical layer\n");
 	FRAME f;
 	size_t len;
-	int link, checksum;
+	int link; //, checksum;
 	len = sizeof(FRAME);
 	CHECK(CNET_read_physical(&link, (char *)&f, &len));
-	checksum = f.checksum;
-	f.checksum = 0;
-	if (CNET_ccitt((unsigned char *) &f, (int) len) != checksum) {
-		DEBUG1("\t\t\t\tBAD checksum - frame ignored\n");
-		return; // bad checksum, ignore frame
-	}
+//	checksum = f.checksum;
+//	f.checksum = 0;
+//	if (CNET_ccitt((unsigned char *) &f, (int) len) != checksum) {
+//		DEBUG1("\t\t\t\tBAD checksum - frame ignored\n");
+//		return; // bad checksum, ignore frame
+//	}
 
 	switch (f.kind) {
 		case DL_ACK:
@@ -109,16 +119,17 @@ static EVENT_HANDLER(physical_ready) {
 				while(inside_current_window_sender(&sender_window,f.seq))
 				{
 					decrease_buffered_size(&sender_window);
-					DEBUG1("ACK received, mark in loop");
+					//DEBUG1("ACK received, mark in loop");
 
 					//stop_frame_timer(&sender_window, f.seq);
 					increment_first_message_number(&sender_window);
 				}
+				// TODO: used to be ALLNODES
 				CNET_enable_application(ALLNODES);
-				DEBUG1("Enabling application\n");
+				//DEBUG1("Enabling application\n");
 				print_snd(&sender_window);
 			} else {
-				DEBUG1("Not inside reciever window\n");
+				//DEBUG1("Not inside reciever window\n");
 				print_snd(&sender_window);
 			}
 
@@ -149,7 +160,7 @@ static EVENT_HANDLER(physical_ready) {
 			}
 			//frameexpected + MAXSEQ) % (MAXSEQ+1)
 			int acknowledgement_id = (receiver_window.first_frame_expected+BUFFER_SIZE-1)%BUFFER_SIZE;
-			DEBUG2("Sending ACK, id=%d\n",acknowledgement_id);
+			DEBUG2("Sending ACK, id=%d",acknowledgement_id);
 			transmit_frame((PACKET *) NULL, DL_ACK, 0, acknowledgement_id);
 			break;
 		case DL_NACK:
