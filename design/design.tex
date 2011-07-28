@@ -11,7 +11,13 @@
 \maketitle
 
 \section{Introduction}
-
+	The problem - design a protocol which provides service for delivering messages
+	between hosts in multihost networks with different topologies. 
+	
+	Assumptions
+		1)In the multihost networks hosts don't fail.
+		2)The links have tendency to loose and corrupt messages from time to time.
+		3)The links have varying capacities and MTU.
 \section{Protocol Layers}
 Our implementation consists of three layers - Application, Transport, Network
 and Datalink. 
@@ -30,8 +36,8 @@ and Datalink.
 		
 	Transport layer
 		A purpose of this layer is in buffering incoming and outcoming messages
-		before sending, handling sliding window paradigm, resending lost and corrupted
-		fragments.
+		before sending, handling sliding window paradigm, acknowledgements, resending
+		lost and corrupted fragments.
 		Top level API:
 			init_transport() - initialize transport layer
 		
@@ -86,10 +92,6 @@ and Datalink.
 \subsection{Routing}
 
 \section{Algorithms}
-
-\subsection{Segmentation}
-
-\subsection{Routing}
 
 \section{Summary}
 
