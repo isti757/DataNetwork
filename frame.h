@@ -19,19 +19,18 @@ typedef enum {
 typedef struct FRAME {
 
 	// header
-	FRAMEKIND kind;  // only ever DL_DATA or DL_ACK
 
-	int len;      // the length of the msg field only
-	int checksum;    // checksum of the whole frame
-
-	// sliding window sequence number
-	int seq;
+	// int seq;         // sliding window sequence number
 
 	// segmentation
-	int seg_seq;
+	// int seg_seq;
 
 	// message part
 	PACKET msg;
+
+	int len;         // the length of the msg field only
+	int checksum;    // checksum of the whole frame
+
 
 } FRAME;
 

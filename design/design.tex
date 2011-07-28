@@ -1,9 +1,13 @@
 %%This is a very basic article template.
 %%There is just one section and two subsections.
+
+
 \documentclass{article}
 
-\begin{document}
+\usepackage{listings}
 
+\begin{document}
+\lstset{language=C}
 
 \title{\center{Data Networks project}}
 \author{Group 7: \\ Sanjar Karaev, Igor Stassiy, Kirill Afanasev}
@@ -11,79 +15,122 @@
 \maketitle
 
 \section{Introduction}
-	The problem - design a protocol which provides service for delivering messages
-	between hosts in multihost networks with different topologies. 
+
+	The problem - design a protocol which provides reliable service for
+	in order delivering of messages between hosts in multihost networks with
+	different topologies.
 	
-	Assumptions
-		1)In the multihost networks hosts don't fail.
-		2)The links have tendency to loose and corrupt messages from time to time.
-		3)The links have varying capacities and MTU.
+	Assumptions:
+	\begin{enumerate}
+	  \item In the multihost networks hosts don't fail.
+	  \item The links have tendency to loose and corrupt frames from time to
+	  time.
+	  \item Frames can arrive out of order.
+	  \item The links have varying capacities and MTU.
+	  \item Nodes are only aware of their immediate neighbors at the beginning.
+	\end{enumerate}
+	
 \section{Protocol Layers}
-Our implementation consists of three layers - Application, Transport, Network
+Our implementation consists of four layers - Application, Transport, Network
 and Datalink. 
 
-	Application layer API
-		A purpose of this layer is in reading and writing messages into Cnet
-		application layer. This layer handles Cnet_application_ready, performs
-		Cnet_read_application and Cnet_write_application routines.
+\begin{itemize}
+  \item Application layer: \\
+		The purpose of this layer is reading and writing messages into Cnet
+		application layer. This layer handles Cnet\_application\_ready, performs
+		Cnet\_read\_application and Cnet\_write\_application routines.
+		
+		Services provided by the layer:
+		\begin{enumerate}
+		  \item Forwarding messages to/from the application layer 
+		\end{enumerate}
 	
-		init_application() - initialize the layer internal structures
+	\begin{verbatim}
+    // initialize the layer internal structures
+    init_application()
 		
-		read_application(MSG message) - this function is used to read incoming message
-		from transport to application layer
+    // this function is used to read incoming message 
+    // from transport to application layer
+    read_application(MSG message) 
+	\end{verbatim}
 		
-		
-		
-	Transport layer
-		A purpose of this layer is in buffering incoming and outcoming messages
+\item	Transport layer: \\
+		The purpose of this layer is in buffering incoming and outcoming messages
 		before sending, handling sliding window paradigm, acknowledgements, resending
 		lost and corrupted fragments.
+		
+		Services provided by the layer:
+    \begin{enumerate}
+      \item Reliably delivers a packet from one host to another, avoiding packet
+      loss and signaling if delivery is not possible.
+      \item Segments the packets to send according to the link MTU.
+    \end{enumerate}
+		
 		Top level API:
-			init_transport() - initialize transport layer
+  \begin{verbatim}
+    // initialize transport layer
+    init_transport()
+	
+    // write outcoming message from application into transport layer
+    write_transport(CnetAddr destaddr,MSG message) 
 		
-			write_transport(CnetAddr destaddr,MSG message) - write outcoming message from
-			application into transport layer
-		
-			read_transport(PACKET packet) - read incoming message from network to
-			transport layer
-		Internal functions:
-			//TODO
+    // read incoming message from network to transport layer
+    read_transport(PACKET packet)
+  \end{verbatim}
 		
 		
-	Network layer
-		A purpose of this layer is in routing and discovering network, providing the
+\item Network layer: \\
+		The purpose of this layer is in routing and discovering network, providing the
 		Transport layer with fragmentation information.
 		
-		Top level API:
-			init_network() - initialize network layer
+		Services provided by the layer:
+    \begin{enumerate}
+      \item Determines the routing information for a host, by keeping a routing
+      table.
+      \item Determines lowest MTU on a path from current host to another.
+    \end{enumerate}
 		
-			write_network(int link, PACKET packet) - write an outcoming message from
-			transport to network layer
+    Top level API:
 		
-			int get_link_for_dest(CnetAddr destaddr) - detect a link for outcoming
-			message
+  \begin{verbatim}
+    // initialize network layer
+    init_network()
 		
-			int get_fragment_for_link(int link) - detect fragmentation size for the
-			specified link
+    // write an outcoming message from transport to network layer
+    write_network(int link, PACKET packet)
 		
-			read_network(link, PACKET packet) - read an incoming packet into network
-			layer
-		Internal functions:
-			//TODO
+    // detect a link for outcoming message
+    int get_next_link_for_dest(CnetAddr destaddr)
 		
+    // detect fragmentation size for the specified link
+    int get_mtu_for_link(int link) 
 		
-	Datalink layer
-		A purpose of this layer is in handling Cnet_write_physical and
-		Cnet_physical_ready functions. 
-		Top level API:
-			init_datalink() - initialize datalink layer
+    // read an incoming packet into network layer
+    read_network(link, PACKET packet)
+  \end{verbatim}
 		
-			write_datalink(int link, PACKET packet) - write an outcoming packet into
-			datalink layer
-		Internal functions:
-			//TODO
 
+\item	Datalink layer: \\
+		The purpose of this layer is in handling Cnet\_write\_physical and
+		Cnet\_physical\_ready functions. 
+		
+		Services provided by the layer:
+    \begin{enumerate}
+      \item Determines the validity of the received datagram.
+      \item Sends a datagram to the link.
+    \end{enumerate}
+		
+		Top level API:
 
+  \begin{verbatim}
+    // initialize datalink layer
+    init_datalink()
+		
+    // write an outcoming packet into datalink layer
+    write_datalink(int link, PACKET packet)
+  \end{verbatim}
+
+\end{itemize}
 
 \section{Frame and Message Structures}
 

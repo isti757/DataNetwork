@@ -6,6 +6,7 @@
 compile = "milestone1.c"
 
 #include "saarland.map"
+#include "linktypes.txt"
 
 probframecorrupt = 0
 probframeloss = 0
