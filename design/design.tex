@@ -13,6 +13,71 @@
 \section{Introduction}
 
 \section{Protocol Layers}
+Our implementation consists of three layers - Application, Transport, Network
+and Datalink. 
+
+	Application layer API
+		A purpose of this layer is in reading and writing messages into Cnet
+		application layer. This layer handles Cnet_application_ready, performs
+		Cnet_read_application and Cnet_write_application routines.
+	
+		init_application() - initialize the layer internal structures
+		
+		read_application(MSG message) - this function is used to read incoming message
+		from transport to application layer
+		
+		
+		
+	Transport layer
+		A purpose of this layer is in buffering incoming and outcoming messages
+		before sending, handling sliding window paradigm, resending lost and corrupted
+		fragments.
+		Top level API:
+			init_transport() - initialize transport layer
+		
+			write_transport(CnetAddr destaddr,MSG message) - write outcoming message from
+			application into transport layer
+		
+			read_transport(PACKET packet) - read incoming message from network to
+			transport layer
+		Internal functions:
+			//TODO
+		
+		
+	Network layer
+		A purpose of this layer is in routing and discovering network, providing the
+		Transport layer with fragmentation information.
+		
+		Top level API:
+			init_network() - initialize network layer
+		
+			write_network(int link, PACKET packet) - write an outcoming message from
+			transport to network layer
+		
+			int get_link_for_dest(CnetAddr destaddr) - detect a link for outcoming
+			message
+		
+			int get_fragment_for_link(int link) - detect fragmentation size for the
+			specified link
+		
+			read_network(link, PACKET packet) - read an incoming packet into network
+			layer
+		Internal functions:
+			//TODO
+		
+		
+	Datalink layer
+		A purpose of this layer is in handling Cnet_write_physical and
+		Cnet_physical_ready functions. 
+		Top level API:
+			init_datalink() - initialize datalink layer
+		
+			write_datalink(int link, PACKET packet) - write an outcoming packet into
+			datalink layer
+		Internal functions:
+			//TODO
+
+
 
 \section{Frame and Message Structures}
 
