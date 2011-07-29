@@ -48,11 +48,13 @@ and Datalink.
 	Top level API:
 	\begin{verbatim}
     // initialize the layer internal structures
-    init_application()
+    void init_application()
 		
-    // this function is used to read incoming message 
-    // from transport to application layer
-    read_application(MSG message) 
+    // reads incoming message from transport to application layer
+    void read_to_application(MSG message) 
+    
+    // write the message up to the application
+    void write_from_application(CnetAddr addr, MSG msg)    
 	\end{verbatim}
 		
 \item	Transport layer: \\
@@ -70,13 +72,13 @@ and Datalink.
 		Top level API:
   \begin{verbatim}
     // initialize transport layer
-    init_transport()
-	
-    // write outcoming message from application into transport layer
-    write_transport(CnetAddr destaddr,MSG message) 
+    void init_transport()
 		
     // read incoming message from network to transport layer
-    read_transport(PACKET packet)
+    void read_to_transport(PACKET pkt)
+    
+    // write outcoming message from application into transport layer
+    void write_from_transport(CnetAddr addr, MSG msg) 
   \end{verbatim}
 		
 		
@@ -95,11 +97,8 @@ and Datalink.
 		
   \begin{verbatim}
     // initialize network layer
-    init_network()
-		
-    // write an outcoming message from transport to network layer
-    write_network(int link, PACKET packet)
-		
+    void init_network()	
+   		
     // detect a link for outcoming message
     int get_next_link_for_dest(CnetAddr destaddr)
 		
@@ -107,7 +106,11 @@ and Datalink.
     int get_mtu_for_link(int link) 
 		
     // read an incoming packet into network layer
-    read_network(link, PACKET packet)
+    void read_to_network(link, PACKET packet)
+    
+     // write an outgoing message from transport to network layer
+    void write_from_network(int link, PACKET packet)
+    
   \end{verbatim}
 		
 
@@ -125,10 +128,13 @@ and Datalink.
 
   \begin{verbatim}
     // initialize datalink layer
-    init_datalink()
+    void init_datalink()
+    
+    // write an incoming frame into datalink layer
+    void read_to_datalink(int link, FRAME frame)
 		
     // write an outcoming packet into datalink layer
-    write_datalink(int link, PACKET packet)
+    void write_datalink(int link, PACKET packet)
   \end{verbatim}
 
 \end{itemize}
