@@ -10,16 +10,35 @@
 
 #include "frame.h"
 
+#include "network_layer.h"
+#include "application_layer.h"
+
+//-----------------------------------------------------------------------------
 typedef struct transport_layer {
 
-	// initialize transport layer
-	void init_transport();
-
-	// read incoming message from network to transport layer
-	void read_to_transport(PACKET pkt);
-
-	// write outcoming message from application into transport layer
-	void write_from_transport(CnetAddr addr, MSG msg);
 };
+//-----------------------------------------------------------------------------
+// initialize transport layer
+void init_transport();
+//-----------------------------------------------------------------------------
+// read incoming message from network to transport layer
+void read_transport(PACKET pkt)
+{
+	int link = get_next_link_for_dest(pkt.dest);
+
+	int mtu = get_mtu_for_link(link);
+
+	// fragment packet
+
+	// put into sliding window
+
+	DATAGRAM dtg;
+	read_network(link, dtg);
+}
+//-----------------------------------------------------------------------------
+// write outcoming message from application into transport layer
+void write_transport(CnetAddr addr, MSG msg);
+//-----------------------------------------------------------------------------
+
 
 #endif /* TRANSPORT_LAYER_H_ */

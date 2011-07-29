@@ -10,17 +10,29 @@
 
 #include "frame.h"
 
-typedef struct application_layer {
+#include "transport_layer.h"
 
-	// initialize the layer internal structures
-	void init_application();
+//-----------------------------------------------------------------------------
+typedef struct application_layer_t {
 
-	// reads incoming message from transport to application layer
-	void read_to_application(MSG message);
 
-	// write the message up to the application
-	void write_from_application(CnetAddr addr, MSG msg);
+} application_layer_t;
+//-----------------------------------------------------------------------------
+application_layer_t application_layer;
+//-----------------------------------------------------------------------------
+static EVENT_HANDLER(application_ready) {
+	// read the message from application layer
+	CnetAddr destaddr;
 
-} application_layer;
+	MSG msg;
+	int msg_size = sizeof(MSG);
+	CHECK(CNET_read_application(&destaddr, (char *)msg, &msg_size));
+
+	// pass message to transport
+	read_application(addr, msg, msg_size);
+}
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
 
 #endif /* APPLICATION_LAYER_H_ */

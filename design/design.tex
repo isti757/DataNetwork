@@ -51,10 +51,10 @@ and Datalink.
     void init_application()
 		
     // reads incoming message from transport to application layer
-    void read_to_application(MSG message) 
+    void read_to_application(CnetAddr addr, MSG message, int len) 
     
     // write the message up to the application
-    void write_from_application(CnetAddr addr, MSG msg)    
+    void write_from_application(CnetAddr addr, PACKET pkt)    
 	\end{verbatim}
 		
 \item	Transport layer: \\

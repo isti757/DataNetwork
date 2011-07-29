@@ -8,9 +8,9 @@
 #ifndef FRAME_H_
 #define FRAME_H_
 
-#include <cnet.h>
-
 #include "packet.h"
+
+#include <cnet.h>
 
 typedef enum {
 	DL_DATA, DL_ACK, DL_NACK
