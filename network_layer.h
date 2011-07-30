@@ -9,33 +9,27 @@
 #define NETWORK_LAYER_H_
 
 #include "datagram.h"
-
 #include "datalink_layer.h"
 #include "transport_layer.h"
-
 //-----------------------------------------------------------------------------
-typedef struct network_layer {
-
-} network_layer;
+//typedef struct network_layer {
+//
+//} network_layer;
 //-----------------------------------------------------------------------------
 // initialize network layer
-void init_network();
+extern void init_network();
 //-----------------------------------------------------------------------------
 // detect a link for outcoming message
-int get_next_link_for_dest(CnetAddr destaddr);
+extern int get_next_link_for_dest(CnetAddr destaddr);
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified link
-int get_mtu_for_link(int link);
+extern int get_mtu_for_link(int link);
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
-void read_network(int link, DATAGRAM dtg)
-{
-	FRAME frm;
-	read_datalink(link, frm);
-}
+extern void read_network(int link, DATAGRAM dtg);
 //-----------------------------------------------------------------------------
-// write an outgoing message from transport to network layer
-void write_network(int link, PACKET packet);
+// write an incoming message from datalink to network layer
+extern void write_network(int link, DATAGRAM dtg);
 //-----------------------------------------------------------------------------
 
 #endif /* NETWORK_LAYER_H_ */
