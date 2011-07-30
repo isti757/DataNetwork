@@ -22,9 +22,9 @@ typedef struct transport_layer {
 void init_transport();
 //-----------------------------------------------------------------------------
 // read incoming message from network to transport layer
-void read_transport(PACKET pkt)
+void read_transport(CnetAddr destaddr, PACKET pkt)
 {
-	int link = get_next_link_for_dest(pkt.dest);
+	int link = get_next_link_for_dest(destaddr);
 
 	int mtu = get_mtu_for_link(link);
 
@@ -37,7 +37,7 @@ void read_transport(PACKET pkt)
 }
 //-----------------------------------------------------------------------------
 // write outcoming message from application into transport layer
-void write_transport(CnetAddr addr, MSG msg);
+void write_transport(PACKET pkt);
 //-----------------------------------------------------------------------------
 
 

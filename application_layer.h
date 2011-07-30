@@ -9,7 +9,7 @@
 #define APPLICATION_LAYER_H_
 
 #include "frame.h"
-
+#include "packet.h"
 #include "transport_layer.h"
 
 //-----------------------------------------------------------------------------
@@ -29,7 +29,11 @@ static EVENT_HANDLER(application_ready) {
 	CHECK(CNET_read_application(&destaddr, (char *)msg, &msg_size));
 
 	// pass message to transport
-	read_application(addr, msg, msg_size);
+	PACKET pkt;
+	pkt.data = msg;
+	pkt.len = msg_size;
+
+	read_transport(destaddr,pkt);
 }
 //-----------------------------------------------------------------------------
 
