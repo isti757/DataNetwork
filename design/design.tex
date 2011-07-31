@@ -58,14 +58,14 @@ and Datalink.
 	\end{verbatim}
 		
 \item	Transport layer: \\
-		The purpose of this layer is in buffering incoming and outcoming
-		 messages before sending, handling sliding window paradigm, 
-		 acknowledgements, resending lost and corrupted fragments.
+		The purpose of this layer is in buffering incoming and outcoming messages
+		before sending, handling sliding window paradigm, acknowledgements, resending
+		lost and corrupted fragments.
 		
 		Services provided by the layer:
     \begin{enumerate}
-      \item Reliably delivers a packet from one host to another, avoiding
-       packet loss and signaling if delivery is not possible.
+      \item Reliably delivers a packet from one host to another, avoiding packet
+      loss and signaling if delivery is not possible.
       \item Segments the packets to send according to the link MTU.
     \end{enumerate}
 		
@@ -75,15 +75,16 @@ and Datalink.
     void init_transport()
 		
     // read incoming message from network to transport layer
-    void read_transport(CnetAddr destaddr, PACKET pkt);
+    void read_to_transport(PACKET pkt)
     
-   // write outcoming message from application into transport layer
-extern void write_transport(DATAGRAM datagram);
+    // write outcoming message from application into transport layer
+    void write_from_transport(CnetAddr addr, MSG msg) 
+  \end{verbatim}
 		
 		
 \item Network layer: \\
-		The purpose of this layer is in routing and discovering network,
-		 providing the Transport layer with fragmentation information.
+		The purpose of this layer is in routing and discovering network, providing the
+		Transport layer with fragmentation information.
 		
 		Services provided by the layer:
     \begin{enumerate}
@@ -98,20 +99,17 @@ extern void write_transport(DATAGRAM datagram);
     // initialize network layer
     void init_network()	
    		
-   // detect a link for outcoming message
-extern int get_next_link_for_dest(CnetAddr destaddr);
+    // detect a link for outcoming message
+    int get_next_link_for_dest(CnetAddr destaddr)
 		
-   // detect a link for outcoming message
-extern int get_next_link_for_dest(CnetAddr destaddr);
-
-// detect fragmentation size for the specified link
-extern int get_mtu_for_link(int link);
-
-// read an incoming packet into network layer
-extern void read_network(int link, DATAGRAM dtg);
-
-// write an incoming message from datalink to network layer
-extern void write_network(int link, DATAGRAM dtg);
+    // detect fragmentation size for the specified link
+    int get_mtu_for_link(int link) 
+		
+    // read an incoming packet into network layer
+    void read_to_network(link, PACKET packet)
+    
+     // write an outgoing message from transport to network layer
+    void write_from_network(int link, PACKET packet)
     
   \end{verbatim}
 		
@@ -129,64 +127,19 @@ extern void write_network(int link, DATAGRAM dtg);
 		Top level API:
 
   \begin{verbatim}
-   // initialize datalink layer
-extern void init_datalink();
-
-// write an incoming frame into datalink layer
-extern void read_datalink(int link, DATAGRAM dtg);
+    // initialize datalink layer
+    void init_datalink()
+    
+    // write an incoming frame into datalink layer
+    void read_to_datalink(int link, FRAME frame)
+		
+    // write an outcoming packet into datalink layer
+    void write_datalink(int link, PACKET packet)
   \end{verbatim}
 
 \end{itemize}
 
-\section{Message Packet Datagram and Frame Structures}
-We define the following basic transfer units: Message, Packet, Datagram, and
-Frame. Every unit encapsulates data, which is the unit from the layer above and
-header, which is the information added by the current layer. 
-
-\begin{itemize}
-  \item Message: \\
-  Basic transfer unit of application layer. 
-  
-  //Data:  an array of char received from cnet application layer
-  
-  //Header:
-  \item Packet: \\
-  Basic transfer unit of transport layer. 
-  
-  //Data:  a message of application layer
-  
-  //Header:  
-  \begin{itemize}
-    \item len - the length of the message
-    \item dest - the destination address
-    \end{itemize}
-  
-  \item Datagram: \\
-   Basic transfer unit of network layer
-   
-   //Data: a packet of transport layer
-   
-   //Header: 
-   \begin{itemize}
-     \item src (source address)
-     \item dest (destination address)
-     \item kind (it stands for whether the message is a data 
-     or an acknowledgement)
-     \item seqno (sequence number)
-     \item hopsleft (indicates how many times the datagram 
-     can still be sent across a link)
-     \item hopstaken  (indicates how many times it has already been sent)
-    \item timesent (indicates at what time the datagram was sent)
-   \item checksum (serves for the detection of possible data corruption)
-\end{itemize}
-
-\item Frame: \\
-
- Basic transfer unit of Datalink layer
- 
- //Data: a datagram of network layer
- //Header:
- \end{itemize}
+\section{Frame and Message Structures}
 
 \subsection{Segmentation}
 
