@@ -5,6 +5,8 @@
  *      Author: kirill
  */
 #include "datagram.h"
+#include "network_layer.h"
+#include "routing.h"
 #ifndef DISCOVERY_H_
 #define DISCOVERY_H_
 
@@ -16,7 +18,7 @@ typedef struct {
   int type;
   int address;
   CnetTime timestamp;
-} DiscoveryPacket;
+} DiscoveryPacket,*pDiscoveryPacket;
 
 /* Discovery Type codes */
 #define Who_R_U   1

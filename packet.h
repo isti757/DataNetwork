@@ -14,7 +14,7 @@
 
 typedef struct
 {
-	int len;   // the length of the data field only
+	size_t len;   // the length of the data field only
 	char		msg[MAX_MESSAGE_SIZE];
 } PACKET;
 

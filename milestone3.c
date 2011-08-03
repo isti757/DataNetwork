@@ -23,5 +23,5 @@ EVENT_HANDLER(reboot_node) {
     init_network();
     //init the transport layer
     init_transport();
-	CNET_enable_application(ALLNODES);
+	//CNET_enable_application(ALLNODES);
 }

@@ -32,7 +32,8 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data)
 	//read a datagram from the datalink layer
 	CHECK(CNET_read_physical(&link, (char *)&dtg, &len));
 	//write the incoming datagram to network layer
-	write_network(link, dtg, len);
+
+	read_network(link, dtg, len);
 
 }
 
@@ -40,10 +41,10 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data)
 
 /* packet from network layer */
 
-void write_datalink(int link, char *packet, int length)
+void write_datalink(int link, char *packet, size_t length)
 {
     /* write Frame to on target link */
-  CHECK(CNET_write_physical(link, (char *)packet, (size_t*)&length));
+  CHECK(CNET_write_physical(link, (char *)packet, &length));
 
 }
 

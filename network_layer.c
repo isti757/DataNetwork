@@ -14,15 +14,18 @@
 
 //initialize the network table
 void init_network() {
-	initDiscovery();
 	initRouting();
-
+	initDiscovery();
 }
 //-----------------END OF PRIVATE FUNCTIONS------------------------------------
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
-void read_network(DATAGRAM dtg) {
-
+void write_network(CnetAddr destaddr, PACKET pkt) {
+	DATAGRAM dtg;
+	dtg.dest = destaddr;
+	memcpy(&dtg.payload, &pkt,PACKET_SIZE(pkt));
+	dtg.length = PACKET_SIZE(pkt);
+	dtg.kind = TRANSPORT;
 
 
 
@@ -33,7 +36,7 @@ void read_network(DATAGRAM dtg) {
 }
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
-void write_network(int link, DATAGRAM dtg, int length)
+void read_network(int link, DATAGRAM dtg, int length)
 {
 	switch (dtg.kind) {
 		case DISCOVER:
@@ -70,25 +73,25 @@ int get_mtu_for_link(int link)
 
 /* Allocate a datagram
 */
-/*DATAGRAM allocNetPacket(int prot, int src, int dest, char *p, int len) {
+DATAGRAM* alloc_datagram(int prot, int src, int dest, char *p, int len) {
 
   int plen;
-  DATAGRAM np;
+  DATAGRAM* np;
 
    //allocate memory for network packet
   plen = sizeof(DATAGRAM) + len;
 
-  np = (DATAGRAM) malloc(plen);
+  np = (DATAGRAM *) malloc(plen);
 
-  np.kind = prot;
-  np.src = src;
-  np.dest = dest;
+  np->kind = prot;
+  np->src = src;
+  np->dest = dest;
   //np->hopCount = MAX_HOP_COUNT;
-  np.length = len;
-  memcpy(np.payload, p, len);
+  np->length = len;
+  memcpy(np->payload, p, len);
 
   return np;
-}*/
+}
 //-----------------------------------------------------------------------------
 /* send a packet to link from Node Address */
 void send_packet(CnetAddr addr, DATAGRAM datagram)
