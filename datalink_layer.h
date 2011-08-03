@@ -19,8 +19,9 @@
 // initialize datalink layer
 extern void init_datalink();
 //-----------------------------------------------------------------------------
-// write an incoming frame into datalink layer
-extern void read_datalink(int link, DATAGRAM dtg);
+// read an incoming frame into datalink layer
+extern void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
-
+// write an outcoming frame into datalink layer
+extern void write_datalink(int, char *, int);
 #endif /* DATALINK_LAYER_H_ */

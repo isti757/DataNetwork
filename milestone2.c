@@ -19,17 +19,32 @@ static EVENT_HANDLER(application_ready)
 {
 	// read the message from application layer
 	CnetAddr destaddr;
-
-	MSG msg;
-	int msg_size = sizeof(MSG);
-	CHECK(CNET_read_application(&destaddr, (char *)&msg, (size_t*)&msg_size));
-
-	// pass message to transport
 	PACKET pkt;
-	pkt.data = msg;
-	pkt.len = msg_size;
+	pkt.len = sizeof(pkt.msg);
 
-	read_transport(destaddr, pkt);
+
+	/*DATAGRAM dtg;
+
+	dtg.length = sizeof(dtg.msg);
+	CHECK(CNET_read_application(&destaddr, dtg.msg, (size_t*)&dtg.length));
+	CNET_disable_application(destaddr);*/
+	// pass message to transport
+
+
+
+	CHECK(CNET_read_application(&destaddr, pkt.msg, (size_t*)&pkt.len));
+	CNET_disable_application(destaddr);
+
+	//read_transport goes here
+
+
+	//read to network directly for testing
+	DATAGRAM dtg;
+	dtg.dest = destaddr;
+	dtg.packet = pkt;
+	dtg.length = PACKET_SIZE(pkt);
+
+	read_network(dtg);
 }
 //-----------------------------------------------------------------------------
 static EVENT_HANDLER(physical_ready)
@@ -37,13 +52,14 @@ static EVENT_HANDLER(physical_ready)
 	int link;
 	size_t len;
 	DATAGRAM dtg;
+	len = sizeof(DATAGRAM);
 
 	CHECK(CNET_read_physical(&link, (char *)&dtg, &len));
 
 	// checksum check
 	// maybe send NACK
 
-	write_network(link, dtg);
+	write_network(link, dtg,len);
 }
 //-----------------------------------------------------------------------------
 // Clean whatever is left in the queue and free the memory
@@ -63,9 +79,12 @@ EVENT_HANDLER(reboot_node) {
 //	CHECK(CNET_set_handler( EV_TIMER1, timeouts, 0));
 	CHECK(CNET_set_handler( EV_DEBUG0, showstate, 0));
 	CHECK(CNET_set_handler( EV_SHUTDOWN, shutdown, 0));
-//
-//	CHECK(CNET_set_debug_string( EV_DEBUG0, "State"));
 
+	CHECK(CNET_set_handler(EV_DEBUG1,show_table, 0));
+    CHECK(CNET_set_debug_string( EV_DEBUG1, "NL info"));
+
+    //init the network layer
+    init_network();
 	//if(nodeinfo.nodenumber == 0)
 	CNET_enable_application(ALLNODES);
 }

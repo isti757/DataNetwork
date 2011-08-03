@@ -8,6 +8,7 @@
 #ifndef TRANSPORT_LAYER_H_
 #define TRANSPORT_LAYER_H_
 
+#include <string.h>
 #include "packet.h"
 #include "network_layer.h"
 #include "application_layer.h"
@@ -19,11 +20,11 @@
 // initialize transport layer
 extern void init_transport();
 //-----------------------------------------------------------------------------
-// read incoming message from network to transport layer
-extern void read_transport(CnetAddr destaddr, PACKET pkt);
+// read outgoing message from application to transport layer
+extern void read_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write outcoming message from application into transport layer
-extern void write_transport(PACKET pkt, CnetAddr dest);
+extern void write_transport(DATAGRAM datagram);
 //-----------------------------------------------------------------------------
 
 #endif /* TRANSPORT_LAYER_H_ */
