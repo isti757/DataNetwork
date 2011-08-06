@@ -14,8 +14,8 @@
 
 //initialize the network table
 void init_network() {
-	initRouting();
-	initDiscovery();
+	init_routing();
+	init_discovery();
 }
 //-----------------END OF PRIVATE FUNCTIONS------------------------------------
 //-----------------------------------------------------------------------------
@@ -40,10 +40,10 @@ void read_network(int link, DATAGRAM dtg, int length)
 {
 	switch (dtg.kind) {
 		case DISCOVER:
-			doDiscovery(link,dtg);
+			do_discovery(link,dtg);
 			break;
 		case ROUTING:
-
+			do_routing(link,dtg);
 			break;
 		case TRANSPORT:
 
@@ -57,18 +57,6 @@ void read_network(int link, DATAGRAM dtg, int length)
 	// update routing tables
 	// send it further
 	CHECK(up_to_network(dtg, length, link));
-}
-//-----------------------------------------------------------------------------
-// detect a link for outcoming message
-int get_next_link_for_dest(CnetAddr destaddr)
-{
-	return 1;
-}
-//-----------------------------------------------------------------------------
-// detect fragmentation size for the specified link
-int get_mtu_for_link(int link)
-{
-	return 96;
 }
 
 /* Allocate a datagram
@@ -117,5 +105,16 @@ void send_packet_to_link(int link, DATAGRAM datagram)
 
   /* send packet down to link layer */
   write_datalink(link, (char *)&datagram, size);
-
 }
+void broadcast_packet(DATAGRAM dtg,int exclude_link)
+{
+	int i = 0;
+	for (i = 0; i < nodeinfo.nlinks; i++) {
+		int link = i + 1; //link number
+		if (link!=exclude_link) {
+			send_packet_to_link(link,dtg);
+		}
+	}
+}
+
+

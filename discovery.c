@@ -27,7 +27,7 @@ static int pollTimer;
 
 /* initialize discovery protocol */
 //-----------------------------------------------------------------------------
-void initDiscovery() {
+void init_discovery() {
 	/* establish the timer event handler */
 	CHECK(CNET_set_handler(EV_DISCOVERY_TIMER, timerHandler, 0));
 
@@ -46,7 +46,7 @@ void initDiscovery() {
 }
 //-----------------------------------------------------------------------------
 /* process a discovery protocol packet */
-void doDiscovery(int link, DATAGRAM datagram) {
+void do_discovery(int link, DATAGRAM datagram) {
 
 	//printf("Doing discovery\n");
 	DATAGRAM* np;
@@ -79,7 +79,7 @@ void doDiscovery(int link, DATAGRAM datagram) {
 		//printf("FROM %d\n",p.address);
 		//if we are not "owed" any I-Am responses, ignore.
 
-		printf("learning table");
+		printf("learning table...\n");
 		learn_route_table(p.address,0,link,nodeinfo.time_in_usec-p.timestamp);
 		/*if (pollCount == 0)
 			break;

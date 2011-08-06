@@ -19,12 +19,7 @@
 //-----------------------------------------------------------------------------
 // initialize network layer
 extern void init_network();
-//-----------------------------------------------------------------------------
-// detect a link for outcoming message
-extern int get_next_link_for_dest(CnetAddr destaddr);
-//-----------------------------------------------------------------------------
-// detect fragmentation size for the specified link
-extern int get_mtu_for_link(int link);
+
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
 extern void write_network(CnetAddr, PACKET);
@@ -37,7 +32,9 @@ extern void send_packet(int , DATAGRAM);
 //-----------------------------------------------------------------------------
 // send the datagram to the specified link
 extern void send_packet_to_link(int, DATAGRAM);
-
+//-----------------------------------------------------------------------------
+// broadcast packet to links
+extern void broadcast_packet(DATAGRAM,int);
 //allocated a datagram
 extern DATAGRAM* alloc_datagram(int, int, int, char *, int);
 

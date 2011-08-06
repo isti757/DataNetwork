@@ -10,8 +10,8 @@
 #ifndef DISCOVERY_H_
 #define DISCOVERY_H_
 
-void initDiscovery();
-void doDiscovery(int, DATAGRAM dtg);
+void init_discovery();
+void do_discovery(int, DATAGRAM dtg);
 
 /* Discovery message format */
 typedef struct {
@@ -29,7 +29,7 @@ typedef struct {
 #define EV_DISCOVERY_TIMER  EV_TIMER9
 
 /* Discovery protocol timers */
-#define DiscoveryStartUp 1000000       /* first delay for poll = 1 sec in usec */
+#define DiscoveryStartUp 10       /* first delay for poll = 1 sec in usec 1000000 */
 
 #define POLLTIMER          1      /* timer for polling */
 #define POLLRESPONSETIMER  2      /* timer for responses to polls */

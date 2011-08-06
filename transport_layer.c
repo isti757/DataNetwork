@@ -6,6 +6,7 @@
  */
 
 #include "transport_layer.h"
+#include "routing.h"
 void init_transport()
 {
 	//set cnet handler
