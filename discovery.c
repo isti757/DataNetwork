@@ -214,5 +214,4 @@ void pollNeighbors() {
 	 pollTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DiscoveryPeriod, POLLTIMER);
 	 #endif
 	 */
-
 }

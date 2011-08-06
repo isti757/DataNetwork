@@ -5,6 +5,9 @@
  *      Author: kirill
  */
 #include "routing.h"
+#include <unistd.h>
+
+CnetTimerID route_pending_timer;
 //-----------------PRIVATE FUNCTIONS-------------------------------------------
 /*
   initialize the routing protocol
@@ -23,6 +26,11 @@ void init_routing() {
 
     CHECK(CNET_set_handler(EV_DEBUG2,doroute, 0));
     CHECK(CNET_set_debug_string( EV_DEBUG2, "ROUTE"));
+
+    CHECK(CNET_set_handler(EV_ROUTE_PENDING_TIMER, route, 0));
+
+    route_pending_timer = CNET_start_timer(EV_ROUTE_PENDING_TIMER,ROUTE_POLLING_TIME,0);
+
 }
 //-----------------------------------------------------------------------------
 //Find the address in the routing table
@@ -56,31 +64,6 @@ int address_exists_in_route_table(CnetAddr addr)
 	}
 	return 0;
 }
-
-
-static int ackexpected(CnetAddr address) {
-    return(route_table[ find_address(address) ].ackexpected);
-}
-
-static void inc_ackexpected(CnetAddr address) {
-    route_table[ find_address(address) ].ackexpected++;
-}
-
-static int nextpackettosend(CnetAddr address) {
-    return(route_table[ find_address(address) ].nextpackettosend++);
-}
-
-static int packetexpected(CnetAddr address) {
-    return(route_table[ find_address(address) ].packetexpected);
-}
-
-static void inc_packetexpected(CnetAddr address) {
-    route_table[ find_address(address) ].packetexpected++;
-}
-
-static int maxhops(CnetAddr address) {
-    return(route_table[ find_address(address) ].minhops);
-}
 static int whichlink(CnetAddr address) {
     int link	= route_table[ find_address(address) ].minhop_link;
     return link;
@@ -99,80 +82,40 @@ void learn_route_table(CnetAddr address, int hops, int link, CnetTime usec)
     route_table[t].totaltime = route_table[t].totaltime+usec;
 }
 //-----------------------------------------------------------------------------
-static int down_to_datalink(int link, char *datagram, int length);
-
-static void selective_flood(char *packet, int length, int links_wanted)
-{
-    int	   link;
-
-    for(link=1 ; link<=nodeinfo.nlinks ; ++link)
-	if( links_wanted & (1<<link) )
-	    CHECK(down_to_datalink(link, packet, length));
-}
-
-static int down_to_datalink(int link, char *datagram, int length)
-{
-    write_datalink(link, (char *)datagram, length);
-    return(0);
-}
-int up_to_network(DATAGRAM datagram, int length, int arrived_on)
-{
-	DATAGRAM *p;
-	CnetAddr addr;
-	p = &datagram;
-
-	if (p->dest == nodeinfo.address) { /*  THIS PACKET IS FOR ME */
-		if (p->kind == DATA && p->seqno == packetexpected(p->src)) {
-			//length	= p->packet.len;
-			//Pass a datagram to the transport level
-			read_transport(datagram);
-			inc_packetexpected(p->src);
-
-			learn_route_table(p->src, p->hopstaken, arrived_on, 0);
-
-			addr = p->src; /* transform NL_DATA into NL_ACK */
-			p->src = p->dest;
-			p->dest = addr;
-
-			p->kind = ACK;
-			p->hopsleft = maxhops(p->dest);
-			p->hopstaken = 1;
-			p->length = 0;
-			selective_flood((char*) &datagram, DATAGRAM_HEADER_SIZE, whichlink(p->dest));
-		} else if (p->kind == ACK && p->seqno == ackexpected(p->src)) {
-			CnetTime took;
-			CNET_enable_application(p->src);
-			inc_ackexpected(p->src);
-			took = nodeinfo.time_in_usec - p->timesent;
-			learn_route_table(p->src, p->hopstaken, arrived_on, took);
-		}
-	} else { /* THIS PACKET IS FOR SOMEONE ELSE */
-		if (--p->hopsleft > 0) { /* send it back out again */
-			p->hopstaken++;
-			learn_route_table(p->src, p->hopstaken, arrived_on, 0);
-			selective_flood((char*) &datagram, length, whichlink(p->dest) & ~(1<< arrived_on));
-		}
-	}
-	return (0);
-}
-
-
 /*
    Take a packet from the transport layer and send it to
    the destination via the best route.
 */
-void route (CnetAddr addr, 	DATAGRAM dtg)
+void route(CnetEvent ev, CnetTimerID timer, CnetData data)
 {
-	dtg.src = nodeinfo.address;
-	dtg.kind = DATA;
-	dtg.hopsleft = maxhops(dtg.dest);
-	dtg.hopstaken = 1;
-	dtg.timesent = nodeinfo.time_in_usec;
-	dtg.seqno = nextpackettosend(dtg.dest);
-	selective_flood((char *) &dtg, DATAGRAM_SIZE(dtg), whichlink(dtg.dest));
-
-
+	if (queue_nitems(datagram_queue)>50) {
+		CNET_disable_application(ALLNODES);
+	}
+	if (queue_nitems(datagram_queue)==0) {
+		CNET_enable_application(ALLNODES);
+	}
+	printf("Checking the queue \n");
+	if (queue_nitems(datagram_queue) != 0) {
+		size_t len;
+		DATAGRAM *dtg;
+		dtg = queue_peek(datagram_queue, &len);
+		int link = get_next_link_for_dest(dtg->dest);
+		if (link == -1) {
+			printf("in route: no address for %d sending request\n",dtg->dest);
+			send_route_request(dtg->dest);
+		} else {
+			printf("in route: send to link %d\n to address=%d\n",link,dtg->dest);
+			DATAGRAM copy_dtg;
+			memcpy((char*)&copy_dtg,(char*)dtg,DATAGRAM_SIZE((*dtg)));
+			send_packet_to_link(link,copy_dtg);
+			queue_remove(datagram_queue,&len);
+			free(dtg);
+		}
+	}
+	route_pending_timer = CNET_start_timer(EV_ROUTE_PENDING_TIMER,ROUTE_POLLING_TIME,0);
 }
+
+
 void show_table(CnetEvent ev, CnetTimerID timer, CnetData data)
 {
     int	t;
@@ -315,22 +258,27 @@ int get_next_link_for_dest(CnetAddr destaddr)
 	//address not exists yet
 	if (address_exists_in_route_table(destaddr)==0) {
 		printf("the address is not in route table\n");
-		ROUTE_PACKET req_packet;
-		req_packet.type = RREQ;
-		req_packet.source = nodeinfo.address;
-		req_packet.dest = destaddr;
-		req_packet.hop_count = 0;
-		req_packet.req_id = route_req_id;
-		route_req_id++;
-		DATAGRAM* r_packet = alloc_datagram(ROUTING,nodeinfo.address,destaddr,(char*)&req_packet,sizeof(req_packet));
-		printf("sending rreq for %d\n",destaddr);
-		broadcast_packet(*r_packet,-1);
-		return 0;
+		return -1;
 	} else {
 		printf("the address is in route table link=%d\n",whichlink(destaddr));
 		return whichlink(destaddr);
 	}
 }
+
+void send_route_request(CnetAddr destaddr) {
+	ROUTE_PACKET req_packet;
+	req_packet.type = RREQ;
+	req_packet.source = nodeinfo.address;
+	req_packet.dest = destaddr;
+	req_packet.hop_count = 0;
+	req_packet.req_id = route_req_id;
+	route_req_id++;
+	DATAGRAM* r_packet = alloc_datagram(ROUTING, nodeinfo.address, destaddr,
+			(char*) &req_packet, sizeof(req_packet));
+	printf("sending rreq for %d\n", destaddr);
+	broadcast_packet(*r_packet, -1);
+}
+
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified link
 int get_mtu_for_link(int link)
@@ -342,5 +290,11 @@ void doroute() {
 		get_next_link_for_dest(5);
 	}
 }
-
+//check if all neighbors have been discovered
+int check_neighbors_discovered() {
+	if (route_table_size==nodeinfo.nlinks) {
+		return 1;
+	}
+	return 0;
+}
 

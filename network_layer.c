@@ -10,29 +10,25 @@
 #include "discovery.h"
 #include "routing.h"
 
-
-
 //initialize the network table
 void init_network() {
 	init_routing();
 	init_discovery();
+    datagram_queue = queue_new();
 }
 //-----------------END OF PRIVATE FUNCTIONS------------------------------------
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
 void write_network(CnetAddr destaddr, PACKET pkt) {
 	DATAGRAM dtg;
+	dtg.src = nodeinfo.address;
 	dtg.dest = destaddr;
-	memcpy(&dtg.payload, &pkt,PACKET_SIZE(pkt));
+	memcpy(&(dtg.payload), &pkt,PACKET_SIZE(pkt));
 	dtg.length = PACKET_SIZE(pkt);
 	dtg.kind = TRANSPORT;
-
-
-
-	route(dtg.dest,dtg);
-	//selective_flood((char *) &dtg, DATAGRAM_SIZE(dtg), whichlink(dtg.dest));
-
-	//read_datalink(link, dtg);
+	dtg.timesent = nodeinfo.time_in_usec;
+	queue_add(datagram_queue, &dtg, DATAGRAM_SIZE(dtg));
+	printf("Size of the queue=%d\n",queue_nitems(datagram_queue));
 }
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
@@ -46,17 +42,17 @@ void read_network(int link, DATAGRAM dtg, int length)
 			do_routing(link,dtg);
 			break;
 		case TRANSPORT:
-
+			printf("received datagram on transport level\n");
+			if (dtg.dest!=nodeinfo.address) {
+				printf("forwarding..\n");
+				queue_add(datagram_queue, &dtg, DATAGRAM_SIZE(dtg));
+			} else {
+				read_transport(dtg);
+			}
 			break;
 		default:
 			break;
 	}
-
-
-	// if not this host, send further
-	// update routing tables
-	// send it further
-	CHECK(up_to_network(dtg, length, link));
 }
 
 /* Allocate a datagram

@@ -18,11 +18,13 @@
 
 //-----------------------------------------------------------------------------
 EVENT_HANDLER(reboot_node) {
-    //init the datalink layer
+
+	//init the datalink layer
     init_datalink();
     //init the network layer
     init_network();
     //init the transport layer
     init_transport();
-	//CNET_enable_application(ALLNODES);
+    //init the application layer
+    init_application();
 }

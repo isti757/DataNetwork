@@ -12,7 +12,6 @@
 
 void init_discovery();
 void do_discovery(int, DATAGRAM dtg);
-
 /* Discovery message format */
 typedef struct {
   int type;

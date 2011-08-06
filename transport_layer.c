@@ -24,17 +24,7 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data)
 	PACKET pkt;
 	pkt.len = sizeof(pkt.msg);
 	CHECK(CNET_read_application(&destaddr, &pkt.msg, &pkt.len));
-	CNET_disable_application(destaddr);
-
-	int link = get_next_link_for_dest(destaddr);
-
-	//int mtu = get_mtu_for_link(link);
-	link = 0;
-	// fragment packet
-
-	// put into sliding window
-	//read to network
-
+	printf("Sending packet to %d\n",destaddr);
 	write_network(destaddr,pkt);
 }
 //-----------------------------------------------------------------------------

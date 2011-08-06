@@ -13,6 +13,11 @@
 
 #define	MAXHOPS		4
 #define	ALL_LINKS	(-1)
+#define EV_ROUTE_PENDING_TIMER  EV_TIMER7
+#define ROUTE_POLLING_TIME 200000
+
+
+QUEUE datagram_queue;
 /**
  * A network routing table for each node
  */
@@ -54,6 +59,8 @@ int reverse_table_size;
 
 int route_req_id;
 
+
+
 #define RREQ   1
 #define RREP   2
 //A route request packet
@@ -70,11 +77,10 @@ typedef struct {
 extern void init_routing();
 //-----------------------------------------------------------------------------
 // route a packet
-extern void route(CnetAddr, DATAGRAM);
+extern void route(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 //process a routing packet
 extern void do_routing(int,DATAGRAM);
-
 //-----------------------------------------------------------------------------
 // learn the routing table
 extern void learn_route_table(CnetAddr address, int hops, int link, CnetTime usec);
@@ -84,9 +90,12 @@ extern int get_next_link_for_dest(CnetAddr destaddr);
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified link
 extern int get_mtu_for_link(int link);
+//
+extern int check_neighbors_discovered();
 
+extern void send_route_request(CnetAddr);
 //-----------------------------------------------------------------------------
 extern void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
 
-extern int up_to_network(DATAGRAM datagram, int length, int arrived_on);
+//extern int up_to_network(DATAGRAM datagram, int length, int arrived_on);
 #endif /* ROUTING_H_ */

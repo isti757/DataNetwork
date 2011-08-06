@@ -8,16 +8,15 @@
 #ifndef APPLICATION_LAYER_H_
 #define APPLICATION_LAYER_H_
 
+#include "cnet.h"
 #include "packet.h"
 #include "transport_layer.h"
+#include "routing.h"
+
+#define DISCOVERY_PENDING_TIME 200000
+#define EV_DISCOVERY_PENDING_TIMER  EV_TIMER8
 
 //-----------------------------------------------------------------------------
-//typedef struct application_layer_t
-//{
-//	;
-//} application_layer_t;
-//-----------------------------------------------------------------------------
-//application_layer_t application_layer;
-//-----------------------------------------------------------------------------
-
+//init application
+extern void init_application();
 #endif /* APPLICATION_LAYER_H_ */

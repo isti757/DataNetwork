@@ -9,14 +9,12 @@
 #define NETWORK_LAYER_H_
 
 #include "datagram.h"
+#include <cnetsupport.h>
 #include "datalink_layer.h"
 #include "transport_layer.h"
 
 //-----------------------------------------------------------------------------
-//typedef struct network_layer {
-//
-//} network_layer;
-//-----------------------------------------------------------------------------
+
 // initialize network layer
 extern void init_network();
 
