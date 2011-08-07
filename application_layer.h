@@ -13,7 +13,7 @@
 #include "transport_layer.h"
 #include "routing.h"
 //timer setting for pending discovery process
-#define DISCOVERY_PENDING_TIME 200000
+#define DISCOVERY_PENDING_TIME 20000
 #define EV_DISCOVERY_PENDING_TIMER  EV_TIMER8
 
 //-----------------------------------------------------------------------------

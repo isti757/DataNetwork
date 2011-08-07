@@ -16,7 +16,7 @@ void discovery_pending(CnetEvent ev, CnetTimerID timer, CnetData data) {
 		discovery_pending_timer = CNET_start_timer(EV_DISCOVERY_PENDING_TIMER,
 				DISCOVERY_PENDING_TIME, 0);
 	} else {
-		//if (nodeinfo.address==182) {
+		//if (nodeinfo.address==182)
 		CNET_enable_application(ALLNODES);
 	}
 }
