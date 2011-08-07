@@ -23,12 +23,15 @@ typedef struct {
 #define Who_R_U   1
 #define I_Am      2
 #define Advertise 3
+#define MAX_LINKS_COUNT 30
 
 /* alias for cnet Timer Queue Number for Discovery */
 #define EV_DISCOVERY_TIMER  EV_TIMER9
 
 /* Discovery protocol timers */
 #define DiscoveryStartUp 10       /* first delay for poll = 1 sec in usec 1000000 */
+#define DiscoveryTimeOut 30000       /* 0.5 sec in usec for responses to polls*/
+
 
 #define POLLTIMER          1      /* timer for polling */
 #define POLLRESPONSETIMER  2      /* timer for responses to polls */

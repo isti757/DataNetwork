@@ -1,4 +1,4 @@
-messagerate      = 10ms,
+messagerate      = 100ms,
 propagationdelay = 100ms,
 bandwidth	 = 56Kbps,
 

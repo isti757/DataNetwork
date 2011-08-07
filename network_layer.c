@@ -18,14 +18,18 @@ void init_network() {
 	datagram_queue = queue_new();
 }
 //-----------------------------------------------------------------------------
+static int is_kind(uint16_t kind, PACKETKIND knd) {
+    return ((kind & knd) > 0);
+}
+//-----------------------------------------------------------------------------
 // read an incoming packet into network layer
-void write_network(CnetAddr destaddr, PACKET pkt) {
+void write_network(PACKETKIND kind, CnetAddr address,uint16_t length, char* packet) {
 	DATAGRAM dtg;
 	dtg.src = nodeinfo.address;
-	dtg.dest = destaddr;
-	memcpy(&(dtg.payload), &pkt, PACKET_SIZE(pkt));
-	dtg.length = PACKET_SIZE(pkt);
-	dtg.kind = TRANSPORT;
+	dtg.dest = address;
+	memcpy(&(dtg.payload), packet, length);
+	dtg.length = length;
+	dtg.kind = kind;
 	dtg.timesent = nodeinfo.time_in_usec;
 	queue_add(datagram_queue, &dtg, DATAGRAM_SIZE(dtg));
 	printf("Size of the queue=%d\n", queue_nitems(datagram_queue));
@@ -33,24 +37,18 @@ void write_network(CnetAddr destaddr, PACKET pkt) {
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
 void read_network(int link, DATAGRAM dtg, int length) {
-	switch (dtg.kind) {
-	case DISCOVER:
+	if (is_kind(dtg.kind,DISCOVER))
 		do_discovery(link, dtg);
-		break;
-	case ROUTING:
+	if (is_kind(dtg.kind,ROUTING))
 		do_routing(link, dtg);
-		break;
-	case TRANSPORT:
+	if (is_kind(dtg.kind,TRANSPORT)) {
 		printf("received datagram on transport level\n");
 		if (dtg.dest != nodeinfo.address) {
 			printf("forwarding..\n");
 			queue_add(datagram_queue, &dtg, DATAGRAM_SIZE(dtg));
 		} else {
-			read_transport(dtg);
+			read_transport(dtg.length,(char*)dtg.payload);
 		}
-		break;
-	default:
-		break;
 	}
 }
 //-----------------------------------------------------------------------------

@@ -25,18 +25,16 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data)
 	pkt.len = sizeof(pkt.msg);
 	CHECK(CNET_read_application(&destaddr, &pkt.msg, &pkt.len));
 	printf("Sending packet to %d\n",destaddr);
-	write_network(destaddr,pkt);
+	write_network(TRANSPORT,destaddr,PACKET_SIZE(pkt),(char*)&pkt);
 }
 //-----------------------------------------------------------------------------
 // write incoming message from application into transport layer
-void read_transport(DATAGRAM dtg)
+void read_transport(uint16_t length, char * packet)
 {
 	PACKET p;
-	memcpy(&p,&dtg.payload,dtg.length);
-	// if DATA pass up
-	size_t len = dtg.length-4;
-    CNET_write_application((char*)&p.msg, &len);
+	memcpy(&p,packet,length);
+	size_t len = length-PACKET_HEADER_SIZE;
+    CNET_write_application((char*)p.msg, &len);
 
-	// if ACK shift sliding window
 }
 //-----------------------------------------------------------------------------

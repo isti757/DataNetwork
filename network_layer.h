@@ -18,7 +18,7 @@
 extern void init_network();
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
-extern void write_network(CnetAddr, PACKET);
+extern void write_network(PACKETKIND, CnetAddr,uint16_t, char*);
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
 extern void read_network(int link, DATAGRAM dtg, int length);

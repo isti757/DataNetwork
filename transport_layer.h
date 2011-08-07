@@ -24,7 +24,7 @@ extern void init_transport();
 extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write outcoming message from network to transport
-extern void read_transport(DATAGRAM datagram);
+extern void read_transport(uint16_t,char*);
 //-----------------------------------------------------------------------------
 
 #endif /* TRANSPORT_LAYER_H_ */
