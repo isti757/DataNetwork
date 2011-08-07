@@ -14,10 +14,8 @@
 #include "transport_layer.h"
 
 //-----------------------------------------------------------------------------
-
 // initialize network layer
 extern void init_network();
-
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
 extern void write_network(CnetAddr, PACKET);
@@ -33,7 +31,7 @@ extern void send_packet_to_link(int, DATAGRAM);
 //-----------------------------------------------------------------------------
 // broadcast packet to links
 extern void broadcast_packet(DATAGRAM,int);
+//-----------------------------------------------------------------------------
 //allocated a datagram
 extern DATAGRAM* alloc_datagram(int, int, int, char *, int);
-
 #endif /* NETWORK_LAYER_H_ */

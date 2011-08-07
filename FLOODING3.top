@@ -1,8 +1,8 @@
-messagerate      = 200ms,
+messagerate      = 10ms,
 propagationdelay = 100ms,
 bandwidth	 = 56Kbps,
 
-compile		 = "milestone3.c  datalink_layer.c network_layer.c transport_layer.c discovery.c routing.c"
+compile		 = "milestone3.c  datalink_layer.c network_layer.c transport_layer.c discovery.c routing.c application_layer.c"
 //compile		 = "flooding.c"
 
 #include "AUSTRALIA.MAP"

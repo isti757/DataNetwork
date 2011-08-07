@@ -8,11 +8,10 @@
 #include <unistd.h>
 
 CnetTimerID route_pending_timer;
-//-----------------PRIVATE FUNCTIONS-------------------------------------------
 /*
   initialize the routing protocol
 */
-void doroute();
+//void doroute();
 void init_routing() {
 	route_table	= (ROUTE_TABLE *)malloc(sizeof(ROUTE_TABLE));
 	route_table_size = 0;
@@ -24,8 +23,8 @@ void init_routing() {
 	CHECK(CNET_set_handler(EV_DEBUG1,show_table, 0));
     CHECK(CNET_set_debug_string( EV_DEBUG1, "NL info"));
 
-    CHECK(CNET_set_handler(EV_DEBUG2,doroute, 0));
-    CHECK(CNET_set_debug_string( EV_DEBUG2, "ROUTE"));
+    /*CHECK(CNET_set_handler(EV_DEBUG2,doroute, 0));
+    CHECK(CNET_set_debug_string( EV_DEBUG2, "ROUTE"));*/
 
     CHECK(CNET_set_handler(EV_ROUTE_PENDING_TIMER, route, 0));
 
@@ -49,11 +48,13 @@ static int find_address(CnetAddr address)
     route_table[route_table_size].ackexpected	= 0;
     route_table[route_table_size].nextpackettosend	= 0;
     route_table[route_table_size].packetexpected	= 0;
-    route_table[route_table_size].minhops		= MAXHOPS;
+    route_table[route_table_size].minhops		= 0;
     route_table[route_table_size].minhop_link	= 0;
     route_table[route_table_size].totaltime		= 0;
     return(route_table_size++);
 }
+//-----------------------------------------------------------------------------
+//check if address exists in the routing table
 int address_exists_in_route_table(CnetAddr addr)
 {
 	int t;
@@ -64,10 +65,11 @@ int address_exists_in_route_table(CnetAddr addr)
 	}
 	return 0;
 }
+//-----------------------------------------------------------------------------
+//find a link to send datagram
 static int whichlink(CnetAddr address) {
     int link	= route_table[ find_address(address) ].minhop_link;
     return link;
-    //return(link == 0 ? ALL_LINKS : (1 << link));
 }
 //-----------------------------------------------------------------------------
 //learn routing table
@@ -82,10 +84,7 @@ void learn_route_table(CnetAddr address, int hops, int link, CnetTime usec)
     route_table[t].totaltime = route_table[t].totaltime+usec;
 }
 //-----------------------------------------------------------------------------
-/*
-   Take a packet from the transport layer and send it to
-   the destination via the best route.
-*/
+/* Take a packet from the transport layer and send it to the destination */
 void route(CnetEvent ev, CnetTimerID timer, CnetData data)
 {
 	if (queue_nitems(datagram_queue)>50) {
@@ -114,7 +113,7 @@ void route(CnetEvent ev, CnetTimerID timer, CnetData data)
 	}
 	route_pending_timer = CNET_start_timer(EV_ROUTE_PENDING_TIMER,ROUTE_POLLING_TIME,0);
 }
-
+//-----------------------------------------------------------------------------
 
 void show_table(CnetEvent ev, CnetTimerID timer, CnetData data)
 {
@@ -147,7 +146,8 @@ void show_table(CnetEvent ev, CnetTimerID timer, CnetData data)
        	printf("%14d %14d\n", (int) reverse_route[t].source,reverse_route[t].link);
     }
 }
-
+//-----------------------------------------------------------------------------
+//find an item in the local history
 int find_local_history(CnetAddr dest, int req_id) {
 	int t;
 	for (t = 0; t < history_table_size; ++t){
@@ -157,6 +157,8 @@ int find_local_history(CnetAddr dest, int req_id) {
 	}
 	return -1;
 }
+//-----------------------------------------------------------------------------
+//insert an item in the local history
 int insert_local_history(CnetAddr addr,int req_id) {
 	 history_table	= (HISTORY_TABLE *)realloc((char *)history_table,
 						(history_table_size+1)*sizeof(HISTORY_TABLE));
@@ -164,6 +166,8 @@ int insert_local_history(CnetAddr addr,int req_id) {
 	 history_table[history_table_size].req_id = req_id;
 	 return(history_table_size++);
 }
+//-----------------------------------------------------------------------------
+//check if reverse route exists
 int exist_reverse_route(CnetAddr address, int link) {
 	int t;
 	for (t = 0; t < reverse_table_size; ++t)
@@ -171,6 +175,8 @@ int exist_reverse_route(CnetAddr address, int link) {
 			return (t);
 	return -1;
 }
+//-----------------------------------------------------------------------------
+//insert an item into the reverse route table
 int insert_reverse_route(CnetAddr address, int link) {
 	reverse_route = (REVERSE_ROUTE_TABLE *) realloc((char *) reverse_route,
 			(reverse_table_size + 1) * sizeof(REVERSE_ROUTE_TABLE));
@@ -178,6 +184,8 @@ int insert_reverse_route(CnetAddr address, int link) {
 	reverse_route[reverse_table_size].link = link;
 	return (reverse_table_size++);
 }
+//-----------------------------------------------------------------------------
+//find a reverse route link
 int find_reverse_route(CnetAddr address) {
 	int t;
 	for (t = 0; t < reverse_table_size; ++t)
@@ -185,7 +193,8 @@ int find_reverse_route(CnetAddr address) {
 			return reverse_route[t].link;
 	return -1;
 }
-
+//-----------------------------------------------------------------------------
+//process a routing datagram
 void do_routing(int link,DATAGRAM datagram)
 {
 	ROUTE_PACKET r_packet;
@@ -264,7 +273,8 @@ int get_next_link_for_dest(CnetAddr destaddr)
 		return whichlink(destaddr);
 	}
 }
-
+//-----------------------------------------------------------------------------
+//send a route request
 void send_route_request(CnetAddr destaddr) {
 	ROUTE_PACKET req_packet;
 	req_packet.type = RREQ;
@@ -278,18 +288,18 @@ void send_route_request(CnetAddr destaddr) {
 	printf("sending rreq for %d\n", destaddr);
 	broadcast_packet(*r_packet, -1);
 }
-
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified link
 int get_mtu_for_link(int link)
 {
 	return 96;
 }
-void doroute() {
+/*void doroute() {
 	if (nodeinfo.address==0) {
 		get_next_link_for_dest(5);
 	}
-}
+}*/
+//-----------------------------------------------------------------------------
 //check if all neighbors have been discovered
 int check_neighbors_discovered() {
 	if (route_table_size==nodeinfo.nlinks) {

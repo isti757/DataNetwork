@@ -11,12 +11,11 @@
 #ifndef ROUTING_H_
 #define ROUTING_H_
 
-#define	MAXHOPS		4
-#define	ALL_LINKS	(-1)
 #define EV_ROUTE_PENDING_TIMER  EV_TIMER7
+//timout for waiting route discovering
 #define ROUTE_POLLING_TIME 200000
 
-
+//A queue for outcoming datagrams
 QUEUE datagram_queue;
 /**
  * A network routing table for each node
@@ -56,11 +55,9 @@ int history_table_size;
 //The reverse route table
 REVERSE_ROUTE_TABLE *reverse_route;
 int reverse_table_size;
-
+//route request counter
 int route_req_id;
-
-
-
+//types of route requests
 #define RREQ   1
 #define RREP   2
 //A route request packet
@@ -90,12 +87,13 @@ extern int get_next_link_for_dest(CnetAddr destaddr);
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified link
 extern int get_mtu_for_link(int link);
-//
+//-----------------------------------------------------------------------------
+//check if all neighbors were discovered
 extern int check_neighbors_discovered();
-
+//-----------------------------------------------------------------------------
+//send a route request to find address
 extern void send_route_request(CnetAddr);
 //-----------------------------------------------------------------------------
-extern void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
 
-//extern int up_to_network(DATAGRAM datagram, int length, int arrived_on);
+extern void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
 #endif /* ROUTING_H_ */

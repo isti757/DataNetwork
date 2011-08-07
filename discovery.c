@@ -31,18 +31,12 @@ void init_discovery() {
 	/* establish the timer event handler */
 	CHECK(CNET_set_handler(EV_DISCOVERY_TIMER, timerHandler, 0));
 
-	/* establish the handler for EV_LINKSTATE
-	 CHECK(CNET_set_handler(EV_LINKSTATE, linkEvent, 0));
-
-	 initialize the linkstate table
-	 initLinkState();
-
-	 initialize the time of last response for each neighbor
+	 //initialize the time of last response for each neighbor
 	 for (i = 0; i < MAXLINKS; timeLastResponse[i++] = int64_ZERO);
 
-	 Schedule the first discovery poll*/
+	/* Schedule the first discovery poll*/
 	pollTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DiscoveryStartUp,
-			POLLTIMER);
+			POLLTIMER);*/
 }
 //-----------------------------------------------------------------------------
 /* process a discovery protocol packet */
@@ -52,16 +46,11 @@ void do_discovery(int link, DATAGRAM datagram) {
 	DATAGRAM* np;
 	DiscoveryPacket p;
 	DiscoveryPacket dpkt;
-
 	memcpy(&p,&datagram.payload,datagram.length);
-
 	//process request/response
 	switch (p.type) {
-
 	//request that we identify ourselves - send I_Am reply
 	case Who_R_U:
-		//printf("WRU found\n");
-		//printf("FROM %d\n",p.address);
 		dpkt.type = I_Am;
 		dpkt.address = nodeinfo.address; //my address
 		dpkt.timestamp = p.timestamp; //return sender's time stamp
@@ -69,16 +58,11 @@ void do_discovery(int link, DATAGRAM datagram) {
 		np = alloc_datagram(DISCOVER, nodeinfo.address, p.address,
 				(char *) &dpkt, sizeof(dpkt));
 		send_packet_to_link(link, *np);
-		//freeNetPacket(np);
-
 		break;
 
-		//response to our Who_R_U query or Advertisement
+		//response to our Who_R_U query
 	case I_Am:
-		//printf("IAM found\n");
-		//printf("FROM %d\n",p.address);
 		//if we are not "owed" any I-Am responses, ignore.
-
 		printf("learning table...\n");
 		learn_route_table(p.address,0,link,nodeinfo.time_in_usec-p.timestamp);
 		/*if (pollCount == 0)
@@ -151,7 +135,6 @@ void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
 		printf("Start polling..\n");
 		pollNeighbors();
 		break;
-
 		/* at least one polled neighbor did not respond - find which */
 	case POLLRESPONSETIMER:
 		/* set pollCount to zero - we will find all dead links here */
