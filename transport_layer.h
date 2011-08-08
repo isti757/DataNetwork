@@ -11,11 +11,9 @@
 #include <string.h>
 #include "packet.h"
 #include "network_layer.h"
-#include "application_layer.h"
-//-----------------------------------------------------------------------------
-//typedef struct transport_layer {
-//
-//};
+//timer setting for pending discovery process
+#define DISCOVERY_PENDING_TIME 20000
+#define EV_DISCOVERY_PENDING_TIMER  EV_TIMER8
 //-----------------------------------------------------------------------------
 // initialize transport layer
 extern void init_transport();
@@ -23,7 +21,7 @@ extern void init_transport();
 // read outgoing message from application to transport layer
 extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
-// write outcoming message from network to transport
+// write incoming message from network to transport
 extern void read_transport(uint16_t,char*);
 //-----------------------------------------------------------------------------
 

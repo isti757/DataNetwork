@@ -22,12 +22,10 @@ QUEUE datagram_queue;
  */
 typedef struct {
     CnetAddr	address;
-    int		ackexpected;
-    int		nextpackettosend;
-    int		packetexpected;
     long	minhops;
     long	minhop_link;
-    CnetTime	totaltime;
+    int 	min_mtu;
+    CnetTime	total_delay;
 } ROUTE_TABLE;
 
 /*
@@ -63,10 +61,12 @@ int route_req_id;
 //A route request packet
 typedef struct {
 	int type;
-	CnetAddr source;
-	CnetAddr dest;
+	uint8_t source;
+	uint8_t dest;
 	int hop_count;
 	int req_id; //a local counter maintained separately by each node and incremented each time a ROUTE REQUEST is broadcast
+	int min_mtu;//a minimum MTU value on the way to destination
+	CnetTime total_delay;//a total propagation delay on the way to destination
 } ROUTE_PACKET;
 
 //-----------------------------------------------------------------------------
@@ -76,24 +76,29 @@ extern void init_routing();
 // route a packet
 extern void route(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
-//process a routing packet
-extern void do_routing(int,DATAGRAM);
-//-----------------------------------------------------------------------------
-// learn the routing table
-extern void learn_route_table(CnetAddr address, int hops, int link, CnetTime usec);
-//-----------------------------------------------------------------------------
-// detect a link for outcoming message
-extern int get_next_link_for_dest(CnetAddr destaddr);
-//-----------------------------------------------------------------------------
-// detect fragmentation size for the specified link
-extern int get_mtu_for_link(int link);
-//-----------------------------------------------------------------------------
-//check if all neighbors were discovered
-extern int check_neighbors_discovered();
+//Check if a route for specified address exists in routing table
+extern int is_route_exists(CnetAddr);
 //-----------------------------------------------------------------------------
 //send a route request to find address
 extern void send_route_request(CnetAddr);
 //-----------------------------------------------------------------------------
-
+//process a routing packet
+extern void do_routing(int,DATAGRAM);
+//-----------------------------------------------------------------------------
+// learn the routing table
+extern void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime total_delay);
+//-----------------------------------------------------------------------------
+// detect a link for outcoming message
+extern int get_next_link_for_dest(CnetAddr destaddr);
+//-----------------------------------------------------------------------------
+// detect fragmentation size for the specified address
+extern int get_mtu_for_route(CnetAddr);
+//-----------------------------------------------------------------------------
+//get propagation delay for specified address
+extern int get_propagation_delay(CnetAddr);
+//-----------------------------------------------------------------------------
+//check if all neighbors were discovered
+extern int check_neighbors_discovered();
+//-----------------------------------------------------------------------------
 extern void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
 #endif /* ROUTING_H_ */

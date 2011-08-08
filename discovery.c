@@ -66,7 +66,7 @@ void do_discovery(int link, DATAGRAM datagram) {
 	case I_Am:
 		//if we are not "owed" any I-Am responses, ignore.
 		printf("learning table...\n");
-		learn_route_table(p.address,0,link,nodeinfo.time_in_usec-p.timestamp);
+		learn_route_table(p.address,0,link,linkinfo[link].mtu,linkinfo[link].propagationdelay);
 		printf("Poll response from %d %d\n",link,nodeinfo.time_in_usec);
 		response_status[link] = 1;
 		break;

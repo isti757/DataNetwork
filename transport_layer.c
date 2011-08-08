@@ -7,14 +7,8 @@
 
 #include "transport_layer.h"
 #include "routing.h"
-void init_transport()
-{
-	//set cnet handler
-	CHECK(CNET_set_handler( EV_APPLICATIONREADY, write_transport, 0));
 
-}
-
-
+CnetTimerID discovery_pending_timer;
 //-----------------------------------------------------------------------------
 // read incoming message from network to transport layer
 void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data)
@@ -38,3 +32,25 @@ void read_transport(uint16_t length, char * packet)
 
 }
 //-----------------------------------------------------------------------------
+//enables application after finishing neighbor discovery process
+void discovery_pending(CnetEvent ev, CnetTimerID timer, CnetData data)
+{
+	printf("checking for discovery to finish...\n");
+	if (check_neighbors_discovered() == 0) {
+		printf("Waiting more..\n");
+		discovery_pending_timer = CNET_start_timer(EV_DISCOVERY_PENDING_TIMER,
+				DISCOVERY_PENDING_TIME, 0);
+	} else {
+		if (nodeinfo.address==182)
+		CNET_enable_application(ALLNODES);
+	}
+}
+//-----------------------------------------------------------------------------
+void init_transport()
+{
+	//set cnet handler
+	CHECK(CNET_set_handler( EV_APPLICATIONREADY, write_transport, 0));
+	CHECK(CNET_set_handler(EV_DISCOVERY_PENDING_TIMER, discovery_pending, 0));
+	discovery_pending_timer = CNET_start_timer(EV_DISCOVERY_PENDING_TIMER,
+				DISCOVERY_PENDING_TIME, 0);
+}

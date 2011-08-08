@@ -44,18 +44,16 @@ static int find_address(CnetAddr address)
     route_table	= (ROUTE_TABLE *)realloc((char *)route_table,
 					(route_table_size+1)*sizeof(ROUTE_TABLE));
 
-    route_table[route_table_size].address		= address;
-    route_table[route_table_size].ackexpected	= 0;
-    route_table[route_table_size].nextpackettosend	= 0;
-    route_table[route_table_size].packetexpected	= 0;
-    route_table[route_table_size].minhops		= 0;
-    route_table[route_table_size].minhop_link	= 0;
-    route_table[route_table_size].totaltime		= 0;
+    route_table[route_table_size].address = address;
+    route_table[route_table_size].minhops = 0;
+    route_table[route_table_size].minhop_link = 0;
+    route_table[route_table_size].total_delay = 0;
+    route_table[route_table_size].min_mtu = 0;
     return(route_table_size++);
 }
 //-----------------------------------------------------------------------------
 //check if address exists in the routing table
-int address_exists_in_route_table(CnetAddr addr)
+int is_route_exists(CnetAddr addr)
 {
 	int t;
 	for (t = 0; t < route_table_size; ++t) {
@@ -72,27 +70,28 @@ static int whichlink(CnetAddr address) {
     return link;
 }
 //-----------------------------------------------------------------------------
-//learn routing table
-void learn_route_table(CnetAddr address, int hops, int link, CnetTime usec)
+//learn routing table TODO what about best route?
+void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime total_delay)
 {
     int	t;
     t = find_address(address);
     //if(route_table[t].minhops >= hops) {
 	route_table[t].minhops	= hops;
 	route_table[t].minhop_link	= link;
+	route_table[t].min_mtu = mtu;
+	route_table[t].total_delay = total_delay;
     //}
-    route_table[t].totaltime = route_table[t].totaltime+usec;
 }
 //-----------------------------------------------------------------------------
 /* Take a packet from the transport layer and send it to the destination */
 void route(CnetEvent ev, CnetTimerID timer, CnetData data)
 {
-	if (queue_nitems(datagram_queue)>50) {
+	/*if (queue_nitems(datagram_queue)>50) {
 		CNET_disable_application(ALLNODES);
 	}
 	if (queue_nitems(datagram_queue)==0) {
 		CNET_enable_application(ALLNODES);
-	}
+	}*/
 	printf("Checking the queue \n");
 	if (queue_nitems(datagram_queue) != 0) {
 		size_t len;
@@ -122,15 +121,15 @@ void show_table(CnetEvent ev, CnetTimerID timer, CnetData data)
     //CNET_clear();
     printf("table_size=%d\n",route_table_size);
     printf("\n%14s %14s %14s %14s %14s\n",
-    "destination","packets-ack'ed","min-hops","minhop-link", "round-trip-time");
+    "destination","min-hops","minhop-link","mtu", "time");
     for (t = 0; t < route_table_size; ++t) {
 		//if ((n = table[t].ackexpected) > 0) {
 			//CnetTime avtime;
 			//avtime = (CnetTime) n;
 			//avtime = table[t].totaltime / avtime;
 			printf("%14d %14d %14ld %14ld %14llu\n", (int) route_table[t].address,
-					route_table[t].ackexpected, route_table[t].minhops,
-					route_table[t].minhop_link, route_table[t].totaltime);
+					route_table[t].minhops,route_table[t].minhop_link,
+					route_table[t].min_mtu, route_table[t].total_delay);
 		//}
 	}
 
@@ -211,7 +210,7 @@ void do_routing(int link,DATAGRAM datagram)
 			//insert into local history table
 			insert_local_history(r_packet.source,r_packet.req_id);
 			//look into our route table
-			if (address_exists_in_route_table(r_packet.dest) || nodeinfo.address==r_packet.dest) {
+			if (is_route_exists(r_packet.dest) || nodeinfo.address==r_packet.dest) {
 				//create RREP
 				printf("Sending RREP from %d to link %d\n",nodeinfo.address,link);
 				ROUTE_PACKET reply_packet;
@@ -219,6 +218,8 @@ void do_routing(int link,DATAGRAM datagram)
 				reply_packet.source = r_packet.source;
 				reply_packet.dest = r_packet.dest;
 				reply_packet.hop_count = 0;
+				reply_packet.total_delay = linkinfo[link].propagationdelay;
+				reply_packet.min_mtu = linkinfo[link].mtu;
 				DATAGRAM* reply_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
 						(char*)&reply_packet,sizeof(reply_packet));
 				send_packet_to_link(link,*reply_datagram);
@@ -241,16 +242,21 @@ void do_routing(int link,DATAGRAM datagram)
 			printf("Received rrep on %d link=%d\n",nodeinfo.address,link);
 			printf("hop count = %d\n",r_packet.hop_count);
 			r_packet.hop_count = r_packet.hop_count+1;
-			if (address_exists_in_route_table(r_packet.dest) == 0) {
-				learn_route_table(r_packet.dest,r_packet.hop_count,link,0); //TODO usec!
+			if (is_route_exists(r_packet.dest) == 0) {
+				learn_route_table(r_packet.dest,r_packet.hop_count,link,r_packet.min_mtu,r_packet.total_delay); //TODO usec!
 			}
 			//if the packet didn't reach its destination
 			if (nodeinfo.address != r_packet.source) {
 				printf("Send rrep to reverse route\n");
 				int reverse_route_link_id = find_reverse_route(r_packet.source);
 				if (reverse_route_link_id==-1) {
-					printf("BIG bug link==-1");
+					printf("Link for reverse routing RREP==-1");
 					break;
+				}
+				//set up propagation delay and mtu
+				r_packet.total_delay = r_packet.total_delay+linkinfo[reverse_route_link_id].propagationdelay;
+				if (r_packet.min_mtu>linkinfo[reverse_route_link_id].mtu) {
+					r_packet.min_mtu = linkinfo[reverse_route_link_id].mtu;
 				}
 				DATAGRAM* reply_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
 										(char*)&r_packet,sizeof(r_packet));
@@ -265,7 +271,7 @@ void do_routing(int link,DATAGRAM datagram)
 int get_next_link_for_dest(CnetAddr destaddr)
 {
 	//address not exists yet
-	if (address_exists_in_route_table(destaddr)==0) {
+	if (is_route_exists(destaddr)==0) {
 		printf("the address is not in route table\n");
 		return -1;
 	} else {
@@ -289,10 +295,14 @@ void send_route_request(CnetAddr destaddr) {
 	broadcast_packet(*r_packet, -1);
 }
 //-----------------------------------------------------------------------------
-// detect fragmentation size for the specified link
-int get_mtu_for_link(int link)
+// detect fragmentation size for the specified destination
+int get_mtu_for_route(CnetAddr address)
 {
-	return 96;
+	if (is_route_exists(address)==1) {
+		int t = find_address(address);
+		return route_table[t].min_mtu;
+	}
+	return -1;
 }
 /*void doroute() {
 	if (nodeinfo.address==0) {

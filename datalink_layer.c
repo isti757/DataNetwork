@@ -54,7 +54,6 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
 /* write packet to the link */
 void write_datalink(int link, char *packet, uint32_t length) {
 	/* write Frame to on target link */
-
 	printf("Written to datalink queue %d\n",length);
 	queue_add(frame_queue,packet,length);
 	queue_add(link_queue,&link,sizeof(int));

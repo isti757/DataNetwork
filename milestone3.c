@@ -12,7 +12,6 @@
 #include "datalink_layer.h"
 #include "network_layer.h"
 #include "transport_layer.h"
-#include "application_layer.h"
 #include "routing.h"
 
 
@@ -25,6 +24,4 @@ EVENT_HANDLER(reboot_node) {
     init_network();
     //init the transport layer
     init_transport();
-    //init the application layer
-    init_application();
 }
