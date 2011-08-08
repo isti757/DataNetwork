@@ -10,7 +10,7 @@
 \lstset{language=C}
 
 \title{\center{Data Networks project}}
-\author{Group 7: \\ Sanjar Karaev, Igor Stassiy, Kirill Afanasev}
+\author{Group 7: \\ Igor Stassiy, Kirill Afanasev,Sanjar Karaev}
 \date{\today}
 \maketitle
 
@@ -31,32 +31,10 @@
 	\end{enumerate}
 	
 \section{Protocol Layers}
-Our implementation consists of four layers - Application, Transport, Network
+Our implementation consists of four layers - Transport, Network
 and Datalink. 
 
-\begin{itemize}
-  \item Application layer: \\
-		The purpose of this layer is reading and writing messages into Cnet
-		application layer. This layer handles Cnet\_application\_ready, performs
-		Cnet\_read\_application and Cnet\_write\_application routines.
-		
-		Services provided by the layer:
-		\begin{enumerate}
-		  \item Forwarding messages to/from the application layer 
-		\end{enumerate}
-	
-	Top level API:
-	\begin{verbatim}
-    // initialize the layer internal structures
-    void init_application()
-		
-    // reads incoming message from transport to application layer
-    void read_to_application(CnetAddr addr, MSG message, int len) 
-    
-    // write the message up to the application
-    void write_from_application(CnetAddr addr, PACKET pkt)    
-	\end{verbatim}
-		
+\begin{itemize}		
 \item	Transport layer: \\
 		The purpose of this layer is in buffering incoming and outcoming
 		 messages before sending, handling sliding window paradigm, 
@@ -65,7 +43,7 @@ and Datalink.
 		Services provided by the layer:
     \begin{enumerate}
       \item Reliably delivers a packet from one host to another, avoiding
-       packet loss and signaling if delivery is not possible.
+       packet loss.
       \item Segments the packets to send according to the link MTU.
     \end{enumerate}
 		
@@ -75,21 +53,24 @@ and Datalink.
     void init_transport()
 		
     // read incoming message from network to transport layer
-    void read_transport(CnetAddr destaddr, PACKET pkt);
+    void read_transport(uint16_t,char*);
     
    // write outcoming message from application into transport layer
-extern void write_transport(DATAGRAM datagram);
-		
+	void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
+	\end{verbatim}	
 		
 \item Network layer: \\
 		The purpose of this layer is in routing and discovering network,
-		 providing the Transport layer with fragmentation information.
+		 providing the Transport layer with fragmentation and propagation
+		 delay information.
 		
 		Services provided by the layer:
     \begin{enumerate}
+      \item Route discovering.
       \item Determines the routing information for a host, by keeping a routing
       table.
       \item Determines lowest MTU on a path from current host to another.
+      \item Determines propagation delay for routes.
     \end{enumerate}
 		
     Top level API:
@@ -98,20 +79,17 @@ extern void write_transport(DATAGRAM datagram);
     // initialize network layer
     void init_network()	
    		
-   // detect a link for outcoming message
-extern int get_next_link_for_dest(CnetAddr destaddr);
-		
-   // detect a link for outcoming message
-extern int get_next_link_for_dest(CnetAddr destaddr);
+	// detect fragmentation size for the way to specified address
+	int get_mtu_for_route(CnetAddr);
+	
+	//get propagation delay for specified address
+	int get_propagation_delay(CnetAddr);
 
-// detect fragmentation size for the specified link
-extern int get_mtu_for_link(int link);
+	//write an outcoming packet into network layer
+	void write_network(PACKETKIND, CnetAddr,uint16_t, char*);
 
-// read an incoming packet into network layer
-extern void read_network(int link, DATAGRAM dtg);
-
-// write an incoming message from datalink to network layer
-extern void write_network(int link, DATAGRAM dtg);
+	//read an incoming message from datalink to network layer
+	void read_network(int link, DATAGRAM dtg, int length);
     
   \end{verbatim}
 		
@@ -123,22 +101,28 @@ extern void write_network(int link, DATAGRAM dtg);
 		Services provided by the layer:
     \begin{enumerate}
       \item Determines the validity of the received datagram.
-      \item Sends a datagram to the link.
+      \item Managing output datagram queue for each link 
     \end{enumerate}
 		
 		Top level API:
 
   \begin{verbatim}
-   // initialize datalink layer
-extern void init_datalink();
+  
+  //initialize datalink layer
+	void init_datalink();
+  //read an incoming frame into datalink layer
+  void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data);
 
-// write an incoming frame into datalink layer
-extern void read_datalink(int link, DATAGRAM dtg);
+  //write an outcoming frame into datalink layer
+  void write_datalink(int, char *, uint32_t);
   \end{verbatim}
 
 \end{itemize}
 
-\section{Message Packet Datagram and Frame Structures}
+\section{Message Packet Datagram}
+
+
+
 We define the following basic transfer units: Message, Packet, Datagram, and
 Frame. Every unit encapsulates data, which is the unit from the layer above and
 header, which is the information added by the current layer. 
