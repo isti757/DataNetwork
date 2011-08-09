@@ -12,6 +12,7 @@
 #include <cnetsupport.h>
 #include "datalink_layer.h"
 #include "transport_layer.h"
+#include "discovery.h"
 
 //-----------------------------------------------------------------------------
 // initialize network layer
@@ -33,5 +34,5 @@ extern void send_packet_to_link(int, DATAGRAM);
 extern void broadcast_packet(DATAGRAM,int);
 //-----------------------------------------------------------------------------
 //allocated a datagram
-extern DATAGRAM* alloc_datagram(int, int, int, char *, int);
+extern DATAGRAM* alloc_datagram(int, int, int, char *, uint16_t);
 #endif /* NETWORK_LAYER_H_ */

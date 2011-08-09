@@ -12,7 +12,7 @@
 #include "packet.h"
 #include "network_layer.h"
 //timer setting for pending discovery process
-#define DISCOVERY_PENDING_TIME 20000
+#define DISCOVERY_PENDING_TIME 400000
 #define EV_DISCOVERY_PENDING_TIMER  EV_TIMER8
 //-----------------------------------------------------------------------------
 // initialize transport layer
@@ -22,7 +22,7 @@ extern void init_transport();
 extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write incoming message from network to transport
-extern void read_transport(uint16_t,char*);
+extern void read_transport(PACKETKIND,uint16_t,CnetAddr,char*);
 //-----------------------------------------------------------------------------
 
 #endif /* TRANSPORT_LAYER_H_ */
