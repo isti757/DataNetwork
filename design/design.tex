@@ -9,6 +9,7 @@
 \begin{document}
 \lstset{language=C}
 
+
 \title{\center{Data Networks project}}
 \author{Group 7: \\ Igor Stassiy, Kirill Afanasev,Sanjar Karaev}
 \date{\today}
@@ -16,9 +17,14 @@
 
 \section{Introduction}
 
+
+
+
+
 	The problem - design a protocol which provides reliable service for
 	in order delivering of messages between hosts in multihost networks with
 	different topologies.
+	%-editor "echo %f:%l" -sourceposition "%line %texfile" %file
 	
 	Assumptions:
 	\begin{enumerate}
@@ -48,17 +54,25 @@ and Datalink.
     \end{enumerate}
 		
 		Top level API:
-  \begin{verbatim}
-    // initialize transport layer
-    void init_transport()
-		
-    // read incoming message from network to transport layer
-    void read_transport(uint16_t,char*);
+  
+  \begin{lstlisting}
+// initialize transport layer
+  void init_transport()
+\end{lstlisting}
     
-   // write outcoming message from application into transport layer
-	void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
-	\end{verbatim}	
 		
+		\begin{lstlisting}
+// read incoming message from network to transport layer
+  void read_transport(uint16_t,char*);
+\end{lstlisting}
+    
+    
+    \begin{lstlisting}
+// write outcoming message from application into transport layer
+  void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
+\end{lstlisting}
+   
+			
 \item Network layer: \\
 		The purpose of this layer is in routing and discovering network,
 		 providing the Transport layer with fragmentation and propagation
@@ -75,25 +89,36 @@ and Datalink.
 		
     Top level API:
 		
-  \begin{verbatim}
-    // initialize network layer
-    void init_network()	
+   \begin{lstlisting}
+// initialize network layer
+  void init_network()	
+\end{lstlisting} 
+   
    		
-	// detect fragmentation size for the way to specified address
-	int get_mtu_for_route(CnetAddr);
+   		\begin{lstlisting}
+// detect fragmentation size for the way to specified address
+  int get_mtu_for_route(CnetAddr);
+\end{lstlisting}
 	
-	//get propagation delay for specified address
-	int get_propagation_delay(CnetAddr);
+	
+	\begin{lstlisting}
+//get propagation delay for specified address
+ int get_propagation_delay(CnetAddr);
+\end{lstlisting}
+	
 
-	//write an outcoming packet into network layer
-	void write_network(PACKETKIND, CnetAddr,uint16_t, char*);
+\begin{lstlisting}
+//write an outcoming packet into network layer
+ void write_network(PACKETKIND, CnetAddr,uint16_t, char*);
+\end{lstlisting}
+	
 
-	//read an incoming message from datalink to network layer
-	void read_network(int link, DATAGRAM dtg, int length);
-    
-  \end{verbatim}
-		
-
+\begin{lstlisting}
+//read an incoming message from datalink to network layer
+ void read_network(int link, DATAGRAM dtg, int length);
+\end{lstlisting}
+	
+    	    	
 \item	Datalink layer: \\
 		The purpose of this layer is in handling Cnet\_write\_physical and
 		Cnet\_physical\_ready functions. 
@@ -106,16 +131,24 @@ and Datalink.
 		
 		Top level API:
 
-  \begin{verbatim}
+    
+  \begin{lstlisting}
+ //initialize datalink layer
+  void init_datalink();
+\end{lstlisting}
+ 
+	\begin{lstlisting}
+//read an incoming frame into datalink layer
+ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data);
+\end{lstlisting}
   
-  //initialize datalink layer
-	void init_datalink();
-  //read an incoming frame into datalink layer
-  void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data);
 
-  //write an outcoming frame into datalink layer
-  void write_datalink(int, char *, uint32_t);
-  \end{verbatim}
+\begin{lstlisting}
+//write an outcoming frame into datalink layer
+ void write_datalink(int, char *, uint32_t);
+\end{lstlisting} 
+ 
+
 
 \end{itemize}
 
@@ -128,18 +161,13 @@ Frame. Every unit encapsulates data, which is the unit from the layer above and
 header, which is the information added by the current layer. 
 
 \begin{itemize}
-  \item Message: \\
-  Basic transfer unit of application layer. 
   
-  //Data:  an array of char received from cnet application layer
-  
-  //Header:
   \item Packet: \\
   Basic transfer unit of transport layer. 
   
-  //Data:  a message of application layer
+    Data:  a message of application layer
   
-  //Header:  
+    Header:  
   \begin{itemize}
     \item len - the length of the message
     \item dest - the destination address
@@ -148,33 +176,26 @@ header, which is the information added by the current layer.
   \item Datagram: \\
    Basic transfer unit of network layer
    
-   //Data: a packet of transport layer
+     Data: a packet of transport layer
    
-   //Header: 
+     Header: 
    \begin{itemize}
      \item src (source address)
      \item dest (destination address)
      \item kind (it stands for whether the message is a data 
-     or an acknowledgement)
-     \item seqno (sequence number)
-     \item hopsleft (indicates how many times the datagram 
-     can still be sent across a link)
-     \item hopstaken  (indicates how many times it has already been sent)
-    \item timesent (indicates at what time the datagram was sent)
-   \item checksum (serves for the detection of possible data corruption)
+     \item length (size of the encapsulated data)
+     \item checksum (serves for the detection of possible data corruption)
+     \item timesent (in microseconds)
+     \item payload[MAXFRAMESIZE]
 \end{itemize}
 
-\item Frame: \\
-
- Basic transfer unit of Datalink layer
- 
- //Data: a datagram of network layer
- //Header:
  \end{itemize}
 
-\subsection{Segmentation}
+\subsection{Fragmentation}
 
 \subsection{Routing}
+The routing algorithm we implement is based upon the AODV (Ad hoc On-demand
+Distance Vector). 
 
 \section{Algorithms}
 
