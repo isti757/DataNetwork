@@ -1,0 +1,7 @@
+messagerate      = 200ms,
+propagationdelay = 100ms,
+bandwidth	 = 56Kbps,
+
+compile		 = "milestone2.c  datalink_layer.c network_layer.c transport_layer.c"
+
+#include "AUSTRALIA.MAP"

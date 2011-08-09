@@ -37,7 +37,7 @@ void init_discovery() {
 	 for (int i = 0; i < nodeinfo.nlinks; i++) {
 		 response_status[i+1] = 0;
 	 }
-	 pollTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DiscoveryStartUp,POLLTIMER);
+	 pollTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_START_UP_TIME,POLLTIMER);
 
 }
 //-----------------------------------------------------------------------------
@@ -46,24 +46,26 @@ void do_discovery(int link, DATAGRAM datagram) {
 
 	//printf("Doing discovery\n");
 	DATAGRAM* np;
-	DiscoveryPacket p;
-	DiscoveryPacket dpkt;
-	memcpy(&p,&datagram.payload,datagram.length);
+	DISCOVERYPACKET p;
+	DISCOVERYPACKET dpkt;
+	size_t datagram_length = datagram.length;
+	memcpy(&p,&datagram.payload,datagram_length);
 	//process request/response
 	switch (p.type) {
 	//request that we identify ourselves - send I_Am reply
 	case Who_R_U:
-		dpkt.type = I_Am;
+		dpkt.type = I_AM;
 		dpkt.address = nodeinfo.address; //my address
 		dpkt.timestamp = p.timestamp; //return sender's time stamp
 		//send the packet
+		uint16_t packet_size = sizeof(dpkt);
 		np = alloc_datagram(DISCOVER, nodeinfo.address, p.address,
-				(char *) &dpkt, sizeof(dpkt));
+				(char *) &dpkt,packet_size );
 		send_packet_to_link(link, *np);
 		break;
 
 		//response to our Who_R_U query
-	case I_Am:
+	case I_AM:
 		//if we are not "owed" any I-Am responses, ignore.
 		printf("learning table...\n");
 		learn_route_table(p.address,0,link,linkinfo[link].mtu,linkinfo[link].propagationdelay);
@@ -75,15 +77,16 @@ void do_discovery(int link, DATAGRAM datagram) {
 //-----------------------------------------------------------------------------
 /* poll our neighbor */
 void pollNeighbor(int link) {
-	DiscoveryPacket p;
+	DISCOVERYPACKET p;
 	int request = Who_R_U;
 	DATAGRAM* np;
 	/* send a Poll message*/
 	p.type = request; //the request
 	p.address = nodeinfo.address; //my address
 	p.timestamp = nodeinfo.time_in_usec; //time we send query
+	uint16_t packet_size = sizeof(p);
 	np = alloc_datagram(DISCOVER, nodeinfo.address, -1, (char *) &p,
-				sizeof(p));
+				packet_size);
 	send_packet_to_link(link, *np);
 
 }
@@ -91,7 +94,6 @@ void pollNeighbor(int link) {
 /* Discovery timer event handler */
 void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
 	switch ((int) data) {
-
 	/* time to poll neighbors again */
 	case POLLTIMER:
 		printf("Start polling..\n");
@@ -100,7 +102,7 @@ void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
 			pollNeighbor(link);
 		}
 		/* start poll fail timer for this poll period */
-		pollResponseTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DiscoveryTimeOut,POLLRESPONSETIMER);
+		pollResponseTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT,POLLRESPONSETIMER);
 		break;
 	case POLLRESPONSETIMER:
 		printf("Checking for polling responses\n");
@@ -112,7 +114,7 @@ void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
 			}
 		}
 		if (run_timer==1) {
-			pollResponseTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DiscoveryTimeOut,POLLRESPONSETIMER);
+			pollResponseTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT,POLLRESPONSETIMER);
 			printf("Timer started again\n");
 		}
 		break;

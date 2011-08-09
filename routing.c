@@ -86,12 +86,13 @@ void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime tot
 /* Take a packet from the transport layer and send it to the destination */
 void route(CnetEvent ev, CnetTimerID timer, CnetData data)
 {
-	/*if (queue_nitems(datagram_queue)>50) {
+	if (queue_nitems(datagram_queue)>50) {
 		CNET_disable_application(ALLNODES);
 	}
 	if (queue_nitems(datagram_queue)==0) {
+		//if (nodeinfo.address==182)
 		CNET_enable_application(ALLNODES);
-	}*/
+	}
 	printf("Checking the queue \n");
 	if (queue_nitems(datagram_queue) != 0) {
 		size_t len;
@@ -104,7 +105,8 @@ void route(CnetEvent ev, CnetTimerID timer, CnetData data)
 		} else {
 			printf("in route: send to link %d\n to address=%d\n",link,dtg->dest);
 			DATAGRAM copy_dtg;
-			memcpy((char*)&copy_dtg,(char*)dtg,DATAGRAM_SIZE((*dtg)));
+			size_t datagram_length = DATAGRAM_SIZE((*dtg));
+			memcpy((char*)&copy_dtg,(char*)dtg,datagram_length);
 			send_packet_to_link(link,copy_dtg);
 			queue_remove(datagram_queue,&len);
 			free(dtg);
@@ -133,11 +135,11 @@ void show_table(CnetEvent ev, CnetTimerID timer, CnetData data)
 		//}
 	}
 
-    printf("history_table_size=%d\n",history_table_size);
+    /*printf("history_table_size=%d\n",history_table_size);
     printf("%14s %14s\n","source","id");
     for (t = 0; t < history_table_size; ++t) {
     	printf("%14d %14d\n", (int) history_table[t].source,history_table[t].req_id);
-    }
+    }*/
 
     printf("reverse_table_size=%d\n",reverse_table_size);
     printf("%14s %14s\n","source","link");
@@ -197,7 +199,8 @@ int find_reverse_route(CnetAddr address) {
 void do_routing(int link,DATAGRAM datagram)
 {
 	ROUTE_PACKET r_packet;
-	memcpy(&r_packet,&datagram.payload,datagram.length);
+	size_t datagram_length = datagram.length;
+	memcpy(&r_packet,&datagram.payload,datagram_length);
 	switch (r_packet.type) {
 		case RREQ:
 			printf("Received rreq on %d link=%d\n",nodeinfo.address,link);
@@ -210,7 +213,8 @@ void do_routing(int link,DATAGRAM datagram)
 			//insert into local history table
 			insert_local_history(r_packet.source,r_packet.req_id);
 			//look into our route table
-			if (is_route_exists(r_packet.dest) || nodeinfo.address==r_packet.dest) {
+			//if (is_route_exists(r_packet.dest) || nodeinfo.address==r_packet.dest) {
+			if (nodeinfo.address==r_packet.dest) {
 				//create RREP
 				printf("Sending RREP from %d to link %d\n",nodeinfo.address,link);
 				ROUTE_PACKET reply_packet;
@@ -220,8 +224,9 @@ void do_routing(int link,DATAGRAM datagram)
 				reply_packet.hop_count = 0;
 				reply_packet.total_delay = linkinfo[link].propagationdelay;
 				reply_packet.min_mtu = linkinfo[link].mtu;
+				uint16_t r_size = sizeof(reply_packet);
 				DATAGRAM* reply_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
-						(char*)&reply_packet,sizeof(reply_packet));
+						(char*)&reply_packet,r_size);
 				send_packet_to_link(link,*reply_datagram);
 				break;
 			}
@@ -229,8 +234,9 @@ void do_routing(int link,DATAGRAM datagram)
 			//increment hop count
 			r_packet.hop_count = r_packet.hop_count+1;
 			//rebroadcast the message
+			uint16_t request_size = sizeof(r_packet);
 			DATAGRAM* r_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
-					(char*)&r_packet,sizeof(r_packet));
+					(char*)&r_packet,request_size);
 			broadcast_packet(*r_datagram,link);
 			//store new entry in reverse table
 			//no entry in the table now
@@ -258,8 +264,9 @@ void do_routing(int link,DATAGRAM datagram)
 				if (r_packet.min_mtu>linkinfo[reverse_route_link_id].mtu) {
 					r_packet.min_mtu = linkinfo[reverse_route_link_id].mtu;
 				}
+				uint16_t reply_size = sizeof(r_packet);
 				DATAGRAM* reply_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
-										(char*)&r_packet,sizeof(r_packet));
+										(char*)&r_packet,reply_size);
 				send_packet_to_link(reverse_route_link_id,*reply_datagram);
 			}
 			break;
@@ -289,8 +296,9 @@ void send_route_request(CnetAddr destaddr) {
 	req_packet.hop_count = 0;
 	req_packet.req_id = route_req_id;
 	route_req_id++;
+	uint16_t request_size = sizeof(req_packet);
 	DATAGRAM* r_packet = alloc_datagram(ROUTING, nodeinfo.address, destaddr,
-			(char*) &req_packet, sizeof(req_packet));
+			(char*) &req_packet, request_size);
 	printf("sending rreq for %d\n", destaddr);
 	broadcast_packet(*r_packet, -1);
 }

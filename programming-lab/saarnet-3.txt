@@ -1,9 +1,9 @@
 // A (cheaper, lossy) connection to SLS is added.
 
-compile = "milestone3.c"
+compile = "flooding.c"
 
 #include "saarland.map"
-#include "linktypes.txt"
+//#include "linktypes.txt"
 
 messagerate = 500ms
 

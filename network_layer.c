@@ -27,7 +27,8 @@ void write_network(PACKETKIND kind, CnetAddr address,uint16_t length, char* pack
 	DATAGRAM dtg;
 	dtg.src = nodeinfo.address;
 	dtg.dest = address;
-	memcpy(&(dtg.payload), packet, length);
+	size_t datagram_length = length;
+	memcpy(&(dtg.payload), packet, datagram_length);
 	dtg.length = length;
 	dtg.kind = kind;
 	dtg.timesent = nodeinfo.time_in_usec;
@@ -47,18 +48,17 @@ void read_network(int link, DATAGRAM dtg, int length) {
 			printf("forwarding..\n");
 			queue_add(datagram_queue, &dtg, DATAGRAM_SIZE(dtg));
 		} else {
-			read_transport(dtg.length,(char*)dtg.payload);
+			read_transport(dtg.kind,dtg.length,dtg.src,(char*)dtg.payload);
 		}
 	}
 }
 //-----------------------------------------------------------------------------
 /* Allocate a datagram*/
-DATAGRAM* alloc_datagram(int prot, int src, int dest, char *p, int len) {
+DATAGRAM* alloc_datagram(int prot, int src, int dest, char *p, uint16_t len) {
 
-	int plen;
 	DATAGRAM* np;
 	//allocate memory for network packet
-	plen = sizeof(DATAGRAM) + len;
+	size_t plen = sizeof(DATAGRAM) + len;
 	np = (DATAGRAM *) malloc(plen);
 	np->kind = prot;
 	np->src = src;

@@ -11,11 +11,8 @@
 #include "datagram.h"
 #include "network_layer.h"
 
-typedef struct {
-	int link;
-	uint32_t len;
-	char * packet;
-} datalink_container;
+#define EV_DATALINK_FLUSH EV_TIMER6
+#define EV_DATALINK_FREE EV_TIMER5
 //-----------------------------------------------------------------------------
 // initialize datalink layer
 extern void init_datalink();
