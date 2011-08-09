@@ -2,7 +2,7 @@
 %%There is just one section and two subsections.
 
 
-\documentclass{article}
+\documentclass{book}
 
 \usepackage{listings}
 
@@ -194,11 +194,64 @@ header, which is the information added by the current layer.
 \subsection{Fragmentation}
 
 \subsection{Routing}
-The routing algorithm we implement is based upon the AODV (Ad hoc On-demand
-Distance Vector). 
+
+  \begin{lstlisting} 
+  // initialize the routing
+extern void init_routing();
+
+// route a packet
+extern void route(CnetEvent ev, CnetTimerID timer, CnetData data);
+
+//Check if a route for specified address exists in routing table
+extern int is_route_exists(CnetAddr);
+
+//send a route request to find address
+extern void send_route_request(CnetAddr);
+
+//process a routing packet
+extern void do_routing(int,DATAGRAM);
+
+// learn the routing table
+extern void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime total_delay);
+
+// detect a link for outcoming message
+extern int get_next_link_for_dest(CnetAddr destaddr);
+
+// detect fragmentation size for the specified address
+extern int get_mtu_for_route(CnetAddr);
+
+//get propagation delay for specified address
+extern int get_propagation_delay(CnetAddr);
+
+//check if all neighbors were discovered
+extern int check_neighbors_discovered();
+
+extern void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
+  \end{lstlisting}
 
 \section{Algorithms}
-
+\begin{itemize}
+  \item Routing Algorithm\\
+The routing algorithm we implement is based upon the AODV (Ad hoc On-demand
+Distance Vector). Every node has links to its neighbours, but is initially
+unaware of other nodes in the network. All nodes maintain a routing table 
+and a history table. The former includes entries for all destinations already
+ discovered by the node. For every disovered destination it also contains 
+ the entry for the first neighbour to contact. The latter contains entries 
+ for discovery requests that the node has received so far. This serves to 
+ discard duplicate requests. Whenever a node needs to send a datagram it first 
+ contacts its routing table and in case there is an entry for the destination
+ it forwards the datagram to the corresponding link. If the destination is not
+ in the routing table then the node broadcasts the request to all its
+ neighbours. When a node receives a discovery request it looks it up in its
+ history table. If there is an existing entry for this request it is discarded.
+ Otherwise if the node knows a path to the destination it sends a reply to the
+ destination. If it does not know how to get to destination it increments the hop
+ of the request and rebroadcasts it to all its links. Then it adds a new entry to
+ its history table which corresponds to the processed request. After a path to
+ the destination is discovered reply packets are sent back to the destination
+ in the reverse order.
+ \end{itemize} 
 \section{Summary}
 
 \end{document}
