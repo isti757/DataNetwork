@@ -1,0 +1,86 @@
+host Dublin {
+    x=97, y=123
+    ostype = "linux"
+    link to Paris {
+	propagationdelay	= 50ms
+    }
+    link to London
+}
+host Paris {
+    x=194, y=255
+    link to Dublin {
+	propagationdelay	= 150ms
+    }
+    link to Amsterdam {
+	propagationdelay	= 100ms
+    }
+    link to Vienna {
+	propagationdelay	= 200ms
+    }
+    link to Madrid {
+	propagationdelay	= 80ms
+    }
+    link to London {
+	propagationdelay	= 80ms
+    }
+}
+host London {
+    x=189, y=102
+    link to Dublin
+    link to Paris
+}
+host Amsterdam {
+    x=294, y=176
+    link to Paris {
+	propagationdelay	= 125ms
+    }
+    link to Vienna {
+	propagationdelay	= 100ms
+    }
+    link to Munich {
+	propagationdelay	= 100ms
+    }
+}
+host Vienna {
+    x=546, y=334
+    link to Amsterdam
+    link to Venice
+    link to Innsbruck
+    link to Munich 
+}
+host Rome {
+    x=442, y=576
+    link to Venice
+    link to Corsica
+    link to Innsbruck
+}
+host Madrid {
+    x=74, y=380
+    link to Paris
+    link to Corsica
+}
+host Munich {
+    x=461, y=145
+    link to Amsterdam 
+    link to Vienna
+    link to Berlin
+}
+host Venice {
+    x=487, y=416
+    link to Vienna
+    link to Rome
+}
+host Innsbruck {
+    x=404, y=356
+    link to Vienna
+    link to Rome
+}
+host Corsica {
+    x=264, y=455
+    link to Rome
+    link to Madrid
+}
+host Berlin {
+    x=639, y=238
+    link to Munich
+}
