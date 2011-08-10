@@ -78,7 +78,8 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 			copy_dtg.link = dtg_container->link;
 			size_t copy_len = dtg_container->len;
 			memcpy(copy_dtg.packet,dtg_container->packet,copy_len);
-			queue_add(dtg_container_queue,&copy_dtg,copy_len);
+			size_t container_length = DTG_CONTAINER_SIZE(copy_dtg);
+			queue_add(dtg_container_queue,&copy_dtg,container_length);
 		}
 		free((DATAGRAM*)dtg_container);
 	}

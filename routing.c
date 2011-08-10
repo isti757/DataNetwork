@@ -7,30 +7,9 @@
 #include "routing.h"
 #include <unistd.h>
 
-CnetTimerID route_pending_timer;
-/*
-  initialize the routing protocol
-*/
-//void doroute();
-void init_routing() {
-	route_table	= (ROUTE_TABLE *)malloc(sizeof(ROUTE_TABLE));
-	route_table_size = 0;
-	history_table = (HISTORY_TABLE*)malloc(sizeof(HISTORY_TABLE));
-	history_table_size = 0;
-	reverse_route = (REVERSE_ROUTE_TABLE*)malloc(sizeof(REVERSE_ROUTE_TABLE));
-	reverse_table_size = 0;
-	route_req_id = 0;
-	CHECK(CNET_set_handler(EV_DEBUG1,show_table, 0));
-    CHECK(CNET_set_debug_string( EV_DEBUG1, "NL info"));
+//an array of pending route requests
+CnetTimerID pending_route_requests[MAX_HOSTS_NUMBER];
 
-    /*CHECK(CNET_set_handler(EV_DEBUG2,doroute, 0));
-    CHECK(CNET_set_debug_string( EV_DEBUG2, "ROUTE"));*/
-
-    CHECK(CNET_set_handler(EV_ROUTE_PENDING_TIMER, route, 0));
-
-    route_pending_timer = CNET_start_timer(EV_ROUTE_PENDING_TIMER,ROUTE_POLLING_TIME,0);
-
-}
 //-----------------------------------------------------------------------------
 //Find the address in the routing table
 static int find_address(CnetAddr address)
@@ -84,35 +63,16 @@ void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime tot
 }
 //-----------------------------------------------------------------------------
 /* Take a packet from the transport layer and send it to the destination */
-void route(CnetEvent ev, CnetTimerID timer, CnetData data)
+void route(DATAGRAM dtg)
 {
-	if (queue_nitems(datagram_queue)>50) {
-		CNET_disable_application(ALLNODES);
+	printf("Perform routing to %d\n",dtg.dest);
+	int link = get_next_link_for_dest(dtg.dest);
+	if (link == -1) {
+		printf("in route: no address for %d sending request\n",dtg.dest);
+	} else {
+		printf("in route: send to link %d\n to address=%d\n",link,dtg.dest);
+		send_packet_to_link(link,dtg);
 	}
-	if (queue_nitems(datagram_queue)==0) {
-		//if (nodeinfo.address==182)
-		CNET_enable_application(ALLNODES);
-	}
-	printf("Checking the queue \n");
-	if (queue_nitems(datagram_queue) != 0) {
-		size_t len;
-		DATAGRAM *dtg;
-		dtg = queue_peek(datagram_queue, &len);
-		int link = get_next_link_for_dest(dtg->dest);
-		if (link == -1) {
-			printf("in route: no address for %d sending request\n",dtg->dest);
-			send_route_request(dtg->dest);
-		} else {
-			printf("in route: send to link %d\n to address=%d\n",link,dtg->dest);
-			DATAGRAM copy_dtg;
-			size_t datagram_length = DATAGRAM_SIZE((*dtg));
-			memcpy((char*)&copy_dtg,(char*)dtg,datagram_length);
-			send_packet_to_link(link,copy_dtg);
-			queue_remove(datagram_queue,&len);
-			free(dtg);
-		}
-	}
-	route_pending_timer = CNET_start_timer(EV_ROUTE_PENDING_TIMER,ROUTE_POLLING_TIME,0);
 }
 //-----------------------------------------------------------------------------
 
@@ -125,14 +85,9 @@ void show_table(CnetEvent ev, CnetTimerID timer, CnetData data)
     printf("\n%14s %14s %14s %14s %14s\n",
     "destination","min-hops","minhop-link","mtu", "time");
     for (t = 0; t < route_table_size; ++t) {
-		//if ((n = table[t].ackexpected) > 0) {
-			//CnetTime avtime;
-			//avtime = (CnetTime) n;
-			//avtime = table[t].totaltime / avtime;
 			printf("%14d %14d %14ld %14ld %14llu\n", (int) route_table[t].address,
 					route_table[t].minhops,route_table[t].minhop_link,
 					route_table[t].min_mtu, route_table[t].total_delay);
-		//}
 	}
 
     /*printf("history_table_size=%d\n",history_table_size);
@@ -289,28 +244,36 @@ int get_next_link_for_dest(CnetAddr destaddr)
 //-----------------------------------------------------------------------------
 //send a route request
 void send_route_request(CnetAddr destaddr) {
-	ROUTE_PACKET req_packet;
-	req_packet.type = RREQ;
-	req_packet.source = nodeinfo.address;
-	req_packet.dest = destaddr;
-	req_packet.hop_count = 0;
-	req_packet.req_id = route_req_id;
-	route_req_id++;
-	uint16_t request_size = sizeof(req_packet);
-	DATAGRAM* r_packet = alloc_datagram(ROUTING, nodeinfo.address, destaddr,
-			(char*) &req_packet, request_size);
-	printf("sending rreq for %d\n", destaddr);
-	broadcast_packet(*r_packet, -1);
+	if (pending_route_requests[destaddr] == NULLTIMER) {
+		ROUTE_PACKET req_packet;
+		req_packet.type = RREQ;
+		req_packet.source = nodeinfo.address;
+		req_packet.dest = destaddr;
+		req_packet.hop_count = 0;
+		req_packet.req_id = route_req_id;
+		route_req_id++;
+		uint16_t request_size = sizeof(req_packet);
+		DATAGRAM* r_packet = alloc_datagram(ROUTING, nodeinfo.address,
+				destaddr, (char*) &req_packet, request_size);
+		printf("sending rreq for %d\n", destaddr);
+		//start timer for pending route request
+		pending_route_requests[destaddr] = CNET_start_timer(EV_ROUTE_PENDING_TIMER,ROUTE_REQUEST_TIMEOUT
+				,destaddr);
+		broadcast_packet(*r_packet, -1);
+	}
 }
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified destination
-int get_mtu_for_route(CnetAddr address)
+int get_mtu(CnetAddr address)
 {
 	if (is_route_exists(address)==1) {
 		int t = find_address(address);
 		return route_table[t].min_mtu;
+	} else {
+		send_route_request(address);
+		return -1;
 	}
-	return -1;
+
 }
 /*void doroute() {
 	if (nodeinfo.address==0) {
@@ -326,3 +289,36 @@ int check_neighbors_discovered() {
 	return 0;
 }
 
+void route_request_resend(CnetEvent ev, CnetTimerID timer, CnetData data)
+{
+	int address = (int)data;
+	printf("Checking route request for %d\n",address);
+	if (is_route_exists(address)==0) {
+		pending_route_requests[address] = NULLTIMER;
+		printf("Resending route request for %d\n",address);
+		send_route_request(address);
+	}
+
+}
+
+/*
+  initialize the routing protocol
+*/
+void init_routing() {
+	route_table	= (ROUTE_TABLE *)malloc(sizeof(ROUTE_TABLE));
+	route_table_size = 0;
+	history_table = (HISTORY_TABLE*)malloc(sizeof(HISTORY_TABLE));
+	history_table_size = 0;
+	reverse_route = (REVERSE_ROUTE_TABLE*)malloc(sizeof(REVERSE_ROUTE_TABLE));
+	reverse_table_size = 0;
+	route_req_id = 0;
+	CHECK(CNET_set_handler(EV_DEBUG1,show_table, 0));
+    CHECK(CNET_set_debug_string( EV_DEBUG1, "NL info"));
+    //init route requests
+    for (int i=0;i<MAX_HOSTS_NUMBER;i++) {
+    	pending_route_requests[i] = NULLTIMER;
+    }
+    //register handler for resending route requests
+    CHECK(CNET_set_handler(EV_ROUTE_PENDING_TIMER,route_request_resend, 0));
+
+}

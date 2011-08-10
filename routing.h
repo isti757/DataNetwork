@@ -12,11 +12,13 @@
 #define ROUTING_H_
 
 #define EV_ROUTE_PENDING_TIMER  EV_TIMER7
-//timout for waiting route discovering
+//timeout for waiting route discovering
 #define ROUTE_POLLING_TIME 200000
+//timeout for waiting route response
+#define ROUTE_REQUEST_TIMEOUT 1000000
+//the maximum number of hosts
+#define MAX_HOSTS_NUMBER 256
 
-//A queue for outcoming datagrams
-QUEUE datagram_queue;
 /**
  * A network routing table for each node
  */
@@ -74,7 +76,7 @@ typedef struct {
 extern void init_routing();
 //-----------------------------------------------------------------------------
 // route a packet
-extern void route(CnetEvent ev, CnetTimerID timer, CnetData data);
+extern void route(DATAGRAM);
 //-----------------------------------------------------------------------------
 //Check if a route for specified address exists in routing table
 extern int is_route_exists(CnetAddr);
@@ -92,7 +94,7 @@ extern void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetT
 extern int get_next_link_for_dest(CnetAddr destaddr);
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified address
-extern int get_mtu_for_route(CnetAddr);
+extern int get_mtu(CnetAddr);
 //-----------------------------------------------------------------------------
 //get propagation delay for specified address
 extern int get_propagation_delay(CnetAddr);
