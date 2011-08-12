@@ -13,6 +13,15 @@
 #include "network_layer.h"
 #include "transport_layer.h"
 #include "routing.h"
+#include "discovery.h"
+
+
+
+#include "datalink_layer.c"
+#include "network_layer.c"
+#include "transport_layer.c"
+#include "routing.c"
+#include "discovery.c"
 
 
 //-----------------------------------------------------------------------------

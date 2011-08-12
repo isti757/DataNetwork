@@ -33,7 +33,7 @@ extern void init_transport();
 extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write incoming message from network to transport
-extern void read_transport(PACKETKIND,uint16_t,CnetAddr,char*);
+extern void read_transport(PACKETKIND kind,uint16_t length,CnetAddr source,char * packet);
 //-----------------------------------------------------------------------------
 
 #endif /* TRANSPORT_LAYER_H_ */

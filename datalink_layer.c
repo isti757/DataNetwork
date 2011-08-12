@@ -33,7 +33,7 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
 		printf("BAD checksum - frame ignored\n");
 		return; // bad checksum, ignore frame
 	}
-	read_network(link, dtg, len);
+	read_network(link, dtg);
 }
 //-----------------------------------------------------------------------------
 // write packet to the link

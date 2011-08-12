@@ -39,7 +39,7 @@ void write_network(PACKETKIND kind, CnetAddr address,uint16_t length, char* pack
 }
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
-void read_network(int link, DATAGRAM dtg, int length) {
+void read_network(int link, DATAGRAM dtg) {
 	if (is_kind(dtg.kind,DISCOVER))
 		do_discovery(link, dtg);
 	if (is_kind(dtg.kind,ROUTING))

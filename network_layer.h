@@ -22,7 +22,7 @@ extern void init_network();
 extern void write_network(PACKETKIND, CnetAddr,uint16_t, char*);
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
-extern void read_network(int link, DATAGRAM dtg, int length);
+extern void read_network(int link, DATAGRAM dtg);
 //-----------------------------------------------------------------------------
 // send the datagram to the specified address
 extern void send_packet(int , DATAGRAM);
