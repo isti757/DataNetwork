@@ -6,6 +6,8 @@
  */
 #include <cnet.h>
 #include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 #include "network_layer.h"
 #include "discovery.h"
 #include "routing.h"
@@ -18,12 +20,12 @@ void init_network() {
 	//datagram_queue = queue_new();
 }
 //-----------------------------------------------------------------------------
-static int is_kind(uint16_t kind, PACKETKIND knd) {
+static int is_kind(uint16_t kind, uint8_t knd) {
     return ((kind & knd) > 0);
 }
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
-void write_network(PACKETKIND kind, CnetAddr address,uint16_t length, char* packet) {
+void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet) {
 	printf("Call write_network\n");
 	DATAGRAM dtg;
 	dtg.src = nodeinfo.address;
@@ -39,12 +41,24 @@ void write_network(PACKETKIND kind, CnetAddr address,uint16_t length, char* pack
 }
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
-void read_network(int link, DATAGRAM dtg) {
-	if (is_kind(dtg.kind,DISCOVER))
+void read_network(int link, size_t length, char * datagram) {
+	DATAGRAM dtg;
+	memcpy(&dtg,datagram,length);
+	printf("Received checksum=%d\n",dtg.checksum);
+	uint16_t checksum = dtg.checksum;
+	dtg.checksum = 0;
+	size_t len = DATAGRAM_SIZE(dtg);
+	uint16_t checksum_to_compare = CNET_ccitt((unsigned char *) &dtg, len);
+	if (checksum_to_compare != checksum) {
+		printf("BAD checksum - ignored\n");
+		return; // bad checksum, ignore frame
+	}
+	//Dispatch the datagram
+	if (is_kind(dtg.kind,__DISCOVER__))
 		do_discovery(link, dtg);
-	if (is_kind(dtg.kind,ROUTING))
+	if (is_kind(dtg.kind,__ROUTING__))
 		do_routing(link, dtg);
-	if (is_kind(dtg.kind,TRANSPORT)) {
+	if (is_kind(dtg.kind,__TRANSPORT__)) {
 		printf("received datagram on transport level\n");
 		if (dtg.dest != nodeinfo.address) {
 			printf("forwarding..\n");
@@ -56,7 +70,7 @@ void read_network(int link, DATAGRAM dtg) {
 }
 //-----------------------------------------------------------------------------
 /* Allocate a datagram*/
-DATAGRAM* alloc_datagram(int prot, int src, int dest, char *p, uint16_t len) {
+DATAGRAM* alloc_datagram(uint8_t prot, int src, int dest, char *p, uint16_t len) {
 
 	DATAGRAM* np;
 	//allocate memory for network packet
@@ -101,4 +115,9 @@ void broadcast_packet(DATAGRAM dtg, int exclude_link) {
 		}
 	}
 }
+//-----------------------------------------------------------------------------
+void shutdown_network() {
 
+	shutdown_datalink();
+}
+//-----------------------------------------------------------------------------

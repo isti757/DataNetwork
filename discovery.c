@@ -59,14 +59,13 @@ void do_discovery(int link, DATAGRAM datagram) {
 		dpkt.timestamp = p.timestamp; //return sender's time stamp
 		//send the packet
 		uint16_t packet_size = sizeof(dpkt);
-		np = alloc_datagram(DISCOVER, nodeinfo.address, p.address,
+		np = alloc_datagram(__DISCOVER__, nodeinfo.address, p.address,
 				(char *) &dpkt,packet_size );
 		send_packet_to_link(link, *np);
 		break;
 
 		//response to our Who_R_U query
 	case I_AM:
-		//if we are not "owed" any I-Am responses, ignore.
 		printf("learning table...\n");
 		learn_route_table(p.address,0,link,linkinfo[link].mtu,linkinfo[link].propagationdelay);
 		printf("Poll response from %d %d\n",link,nodeinfo.time_in_usec);
@@ -85,7 +84,7 @@ void pollNeighbor(int link) {
 	p.address = nodeinfo.address; //my address
 	p.timestamp = nodeinfo.time_in_usec; //time we send query
 	uint16_t packet_size = sizeof(p);
-	np = alloc_datagram(DISCOVER, nodeinfo.address, -1, (char *) &p,
+	np = alloc_datagram(__DISCOVER__, nodeinfo.address, -1, (char *) &p,
 				packet_size);
 	send_packet_to_link(link, *np);
 
@@ -116,6 +115,9 @@ void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
 		if (run_timer==1) {
 			pollResponseTimer = CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT,POLLRESPONSETIMER);
 			printf("Timer started again\n");
+		} else {
+			//notify the transport layer
+			signal_transport(DISCOVERY_FINISHED,-1);
 		}
 		break;
 	}

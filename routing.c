@@ -180,7 +180,7 @@ void do_routing(int link,DATAGRAM datagram)
 				reply_packet.total_delay = linkinfo[link].propagationdelay;
 				reply_packet.min_mtu = linkinfo[link].mtu;
 				uint16_t r_size = sizeof(reply_packet);
-				DATAGRAM* reply_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
+				DATAGRAM* reply_datagram = alloc_datagram(__ROUTING__,r_packet.source,r_packet.dest,
 						(char*)&reply_packet,r_size);
 				send_packet_to_link(link,*reply_datagram);
 				break;
@@ -190,7 +190,7 @@ void do_routing(int link,DATAGRAM datagram)
 			r_packet.hop_count = r_packet.hop_count+1;
 			//rebroadcast the message
 			uint16_t request_size = sizeof(r_packet);
-			DATAGRAM* r_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
+			DATAGRAM* r_datagram = alloc_datagram(__ROUTING__,r_packet.source,r_packet.dest,
 					(char*)&r_packet,request_size);
 			broadcast_packet(*r_datagram,link);
 			//store new entry in reverse table
@@ -220,7 +220,7 @@ void do_routing(int link,DATAGRAM datagram)
 					r_packet.min_mtu = linkinfo[reverse_route_link_id].mtu;
 				}
 				uint16_t reply_size = sizeof(r_packet);
-				DATAGRAM* reply_datagram = alloc_datagram(ROUTING,r_packet.source,r_packet.dest,
+				DATAGRAM* reply_datagram = alloc_datagram(__ROUTING__,r_packet.source,r_packet.dest,
 										(char*)&r_packet,reply_size);
 				send_packet_to_link(reverse_route_link_id,*reply_datagram);
 			}
@@ -253,7 +253,7 @@ void send_route_request(CnetAddr destaddr) {
 		req_packet.req_id = route_req_id;
 		route_req_id++;
 		uint16_t request_size = sizeof(req_packet);
-		DATAGRAM* r_packet = alloc_datagram(ROUTING, nodeinfo.address,
+		DATAGRAM* r_packet = alloc_datagram(__ROUTING__, nodeinfo.address,
 				destaddr, (char*) &req_packet, request_size);
 		printf("sending rreq for %d\n", destaddr);
 		//start timer for pending route request

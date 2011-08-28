@@ -8,6 +8,7 @@
 #include <cnet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "datalink_layer.h"
 #include "network_layer.h"

@@ -12,8 +12,6 @@
 #define ROUTING_H_
 
 #define EV_ROUTE_PENDING_TIMER  EV_TIMER7
-//timeout for waiting route discovering
-#define ROUTE_POLLING_TIME 200000
 //timeout for waiting route response
 #define ROUTE_REQUEST_TIMEOUT 1000000
 //the maximum number of hosts
@@ -79,13 +77,13 @@ extern void init_routing();
 extern void route(DATAGRAM);
 //-----------------------------------------------------------------------------
 //Check if a route for specified address exists in routing table
-extern int is_route_exists(CnetAddr);
+extern int is_route_exists(CnetAddr address);
 //-----------------------------------------------------------------------------
 //send a route request to find address
-extern void send_route_request(CnetAddr);
+extern void send_route_request(CnetAddr address);
 //-----------------------------------------------------------------------------
 //process a routing packet
-extern void do_routing(int,DATAGRAM);
+extern void do_routing(int link,DATAGRAM datagram);
 //-----------------------------------------------------------------------------
 // learn the routing table
 extern void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime total_delay);

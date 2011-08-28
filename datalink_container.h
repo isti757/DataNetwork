@@ -11,7 +11,7 @@
 typedef struct {
 	int link;
 	uint32_t len;
-	char packet[DATAGRAM_HEADER_SIZE+MAX_MESSAGE_SIZE*2];
+	char data[DATAGRAM_HEADER_SIZE+MAX_MESSAGE_SIZE*2];
 } __attribute__((packed)) DTG_CONTAINER;
 
 #define DTG_CONTAINER_HEADER_SIZE  (sizeof(int)+sizeof(uint32_t))

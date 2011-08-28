@@ -11,9 +11,6 @@
 #include <string.h>
 #include "packet.h"
 #include "network_layer.h"
-//timer setting for pending discovery process
-#define DISCOVERY_PENDING_TIME 400000
-#define EV_DISCOVERY_PENDING_TIMER  EV_TIMER8
 #define EV_FLUSH_TRANSPORT_QUEUE EV_TIMER4
 //A packet container to store packets while routing
 typedef struct {
@@ -33,7 +30,7 @@ extern void init_transport();
 extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write incoming message from network to transport
-extern void read_transport(PACKETKIND kind,uint16_t length,CnetAddr source,char * packet);
+extern void read_transport(uint8_t kind,uint16_t length,CnetAddr source,char * packet);
 //-----------------------------------------------------------------------------
-
+extern void signal_transport(SIGNALKIND sg, SIGNALDATA data);
 #endif /* TRANSPORT_LAYER_H_ */
