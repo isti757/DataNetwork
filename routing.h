@@ -36,13 +36,6 @@ typedef struct {
 	int req_id;
 } HISTORY_TABLE;
 
-/*
- * A reverse route table
- */
-typedef struct {
-	CnetAddr source;
-	int link;
-} REVERSE_ROUTE_TABLE;
 
 //The routing table
 ROUTE_TABLE	*route_table;
@@ -50,9 +43,6 @@ int route_table_size;
 //The history table
 HISTORY_TABLE *history_table;
 int history_table_size;
-//The reverse route table
-REVERSE_ROUTE_TABLE *reverse_route;
-int reverse_table_size;
 //route request counter
 int route_req_id;
 //types of route requests
@@ -96,9 +86,6 @@ extern int get_mtu(CnetAddr);
 //-----------------------------------------------------------------------------
 //get propagation delay for specified address
 extern int get_propagation_delay(CnetAddr);
-//-----------------------------------------------------------------------------
-//check if all neighbors were discovered
-extern int check_neighbors_discovered();
 //-----------------------------------------------------------------------------
 extern void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
 #endif /* ROUTING_H_ */

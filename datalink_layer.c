@@ -47,7 +47,7 @@ void write_datalink(int link, char *datagram, uint32_t length) {
 }
 //-----------------------------------------------------------------------------
 //Flush a queue
-void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
+void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 	int current_link = (int)data;
 	printf("Flushing - Number in datagram queue %d link_id=%d\n",queue_nitems(output_queues[current_link]),current_link);
 	if (queue_nitems(output_queues[current_link]) > 0) {
@@ -57,8 +57,8 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 		int link = dtg_container->link;
 
 		//compute timeout for the link
-		CnetTime timeout = 1 + 1000000.0 * ((float) ((datagram_length) * 8.1)
-							/ (float) linkinfo[link].bandwidth);
+		CnetTime timeout = 1 + 1000000.0 * ((double) ((datagram_length) * 8.0)
+		                / (double) linkinfo[link].bandwidth);
 		DL_FRAME frame;
 		memcpy(&frame.data,dtg_container->data,datagram_length);
 		CHECK(CNET_write_physical(link, (char *)&frame, &datagram_length));
@@ -77,7 +77,7 @@ void init_datalink() {
 	//init output queue
 	//dtg_container_queue = queue_new();
 
-	CHECK(CNET_set_handler( EV_DATALINK_FLUSH, flush_queue, 0));
+	CHECK(CNET_set_handler( EV_DATALINK_FLUSH, flush_datalink_queue, 0));
 	//CnetTime timeout = 10000;
 	//flush_queue_timer = CNET_start_timer(EV_DATALINK_FLUSH, timeout, (CnetData) -1);
 	for (int i=1;i<=nodeinfo.nlinks;i++) {

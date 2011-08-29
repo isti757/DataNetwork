@@ -20,7 +20,7 @@ void init_network() {
 	//datagram_queue = queue_new();
 }
 //-----------------------------------------------------------------------------
-static int is_kind(uint16_t kind, uint8_t knd) {
+static int is_kind(uint8_t kind, uint8_t knd) {
     return ((kind & knd) > 0);
 }
 //-----------------------------------------------------------------------------
@@ -33,7 +33,7 @@ void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet)
 	size_t datagram_length = length;
 	memcpy(&(dtg.payload), packet, datagram_length);
 	dtg.length = length;
-	dtg.kind = kind;
+	dtg.kind = kind | __TRANSPORT__;
 	dtg.timesent = nodeinfo.time_in_usec;
 	route(dtg);
 	//queue_add(datagram_queue, &dtg, DATAGRAM_SIZE(dtg));
@@ -53,12 +53,13 @@ void read_network(int link, size_t length, char * datagram) {
 		printf("BAD checksum - ignored\n");
 		return; // bad checksum, ignore frame
 	}
+	printf("Dispatching %d...\n",dtg.kind);
 	//Dispatch the datagram
 	if (is_kind(dtg.kind,__DISCOVER__))
 		do_discovery(link, dtg);
 	if (is_kind(dtg.kind,__ROUTING__))
 		do_routing(link, dtg);
-	if (is_kind(dtg.kind,__TRANSPORT__)) {
+	if (is_kind(dtg.kind,__TRANSPORT__) ) {
 		printf("received datagram on transport level\n");
 		if (dtg.dest != nodeinfo.address) {
 			printf("forwarding..\n");

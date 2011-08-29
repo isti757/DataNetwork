@@ -11,6 +11,9 @@
 #include <string.h>
 #include "packet.h"
 #include "network_layer.h"
+#include "fragment.h"
+
+/*
 #define EV_FLUSH_TRANSPORT_QUEUE EV_TIMER4
 //A packet container to store packets while routing
 typedef struct {
@@ -20,8 +23,22 @@ typedef struct {
 } __attribute__((packed)) PKT_CONTAINER;
 #define PKT_CONTAINER_HEADER_SIZE  (sizeof(uint16_t)+sizeof(uint32_t))
 #define PKT_CONTAINER_SIZE(f) (PKT_CONTAINER_HEADER_SIZE +PACKET_HEADER_SIZE+ f.len)
+*/
 
 
+#include "network_layer.h"
+
+// fragmentation
+#define MAXPL       (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
+#define MAXFR       (MAX_MESSAGE_SIZE+MAXPL)/MAXPL
+
+// sliding window
+#define NBITS       4
+#define MAXSEQ      ((1<<NBITS)-1)
+#define NRBUFS      (1<<(NBITS-1))
+
+#define FALSE       0
+#define TRUE        1
 //-----------------------------------------------------------------------------
 // initialize transport layer
 extern void init_transport();
