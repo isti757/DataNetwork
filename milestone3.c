@@ -16,8 +16,6 @@
 #include "routing.h"
 #include "discovery.h"
 
-
-
 #include "datalink_layer.c"
 #include "network_layer.c"
 #include "transport_layer.c"
@@ -35,3 +33,4 @@ EVENT_HANDLER(reboot_node) {
     //init the transport layer
     init_transport();
 }
+//-----------------------------------------------------------------------------
