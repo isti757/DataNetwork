@@ -57,7 +57,7 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 		int link = dtg_container->link;
 
 		//compute timeout for the link
-		CnetTime timeout = 1 + 1000000.0 * ((double) ((datagram_length) * 8.0)
+		CnetTime timeout = 1 + 1000000.0 * ((double) ((datagram_length) * 8.05)
 		                / (double) linkinfo[link].bandwidth);
 		DL_FRAME frame;
 		memcpy(&frame.data,dtg_container->data,datagram_length);

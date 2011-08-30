@@ -189,7 +189,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         int table_ind = find(frg->dest);
         int mtu = get_mtu(frg->dest);
 
-        if (table[table_ind].nbuffered >= NRBUFS || mtu != -1) {
+        if (table[table_ind].nbuffered < NRBUFS && mtu != -1) {
             // get the first packet in the queue
             frg = queue_remove(fragment_queue, &frag_len);
 
