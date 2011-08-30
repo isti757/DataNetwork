@@ -11,40 +11,43 @@
 #include <cnet.h>
 #include "packet.h"
 #define MAXFRAMESIZE MAX_MESSAGE_SIZE + 4
-typedef enum    	{ DATA, ACK, NACK, DISCOVER, TRANSPORT,ROUTING }   PACKETKIND;
+typedef enum {
+        CONGESTION = 1,
+        DISCOVERY_FINISHED = 2
+
+} SIGNALKIND;
+typedef	intptr_t SIGNALDATA;
+
+//-----------------------------------------------------------------------------
+const static uint8_t
+    __ACK__ = 1,
+    __NACK__ = 2,
+    __DATA__ = 4,
+    __LASTSGM__ = 8;   // transport layer
+
+const static uint8_t
+    __DISCOVER__ = 16,
+    __ROUTING__ = 32,
+    __TRANSPORT__ = 64; // network layer
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 typedef struct {
-    CnetAddr		src;
-    CnetAddr		dest;
-    PACKETKIND	kind;
-    int			seqno;		/* 0, 1, 2, ... */
-    int			hopsleft;	/* time to live */
-    int			hopstaken;
-    int			length;       	/* the length of the packet portion only */
-    CnetTime		timesent;	/* in microseconds */
-    char  payload[MAXFRAMESIZE];
-} DATAGRAM;
+    uint8_t src;       // source address
+    uint8_t dest;      // destination address
+    uint8_t kind;      // packet kind
 
+    uint16_t length;   // length of payload
 
-/*typedef struct {
+    uint16_t checksum;  // checksum of entire datagram
 
-	CnetAddr src;
-	CnetAddr dest;
-	char kind;  only ever DATA or ACK or NACK
-	char seqno;  0, 1, 2, ...
+    CnetTime timesent; // in microseconds //TODO if we need timesent?
 
-	char hopsleft;  time to live
-	char hopstaken;
+    char payload[MAXFRAMESIZE];
 
-	CnetTime timesent;  in microseconds
+} __attribute__((packed)) DATAGRAM;
 
-	int checksum; // checksum of the whole datagram
-	PACKET data;
-
-} DATAGRAM;*/
-
-#define DATAGRAM_HEADER_SIZE  (2*sizeof(CnetAddr)+sizeof(PACKETKIND)+ \
-		4*sizeof(int)+sizeof(CnetTime))
+#define DATAGRAM_HEADER_SIZE  (3*sizeof(uint8_t)+2*sizeof(uint16_t)+sizeof(CnetTime))
 #define DATAGRAM_SIZE(d)      (DATAGRAM_HEADER_SIZE + d.length)
-
 
 #endif /* DATAGRAM_H_ */

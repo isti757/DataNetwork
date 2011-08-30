@@ -11,10 +11,8 @@
 #include "datagram.h"
 #include "network_layer.h"
 
-//-----------------------------------------------------------------------------
-//typedef struct datalink_layer {
-//
-//} datalink_layer;
+#define EV_DATALINK_FLUSH EV_TIMER6
+#define EV_DATALINK_FREE EV_TIMER5
 //-----------------------------------------------------------------------------
 // initialize datalink layer
 extern void init_datalink();
@@ -23,5 +21,9 @@ extern void init_datalink();
 extern void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write an outcoming frame into datalink layer
-extern void write_datalink(int, char *, int);
+extern void write_datalink(int link, char * data, uint32_t length);
+//-----------------------------------------------------------------------------
+// clean the memory
+extern void shutdown_datalink();
+//-----------------------------------------------------------------------------
 #endif /* DATALINK_LAYER_H_ */

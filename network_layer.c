@@ -6,113 +6,119 @@
  */
 #include <cnet.h>
 #include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 #include "network_layer.h"
 #include "discovery.h"
 #include "routing.h"
 
-
-
 //initialize the network table
 void init_network() {
-	initDiscovery();
-	initRouting();
-
+	init_routing();
+	init_discovery();
+	//create an output queue for sending
+	//datagram_queue = queue_new();
 }
-//-----------------END OF PRIVATE FUNCTIONS------------------------------------
+//-----------------------------------------------------------------------------
+static int is_kind(uint8_t kind, uint8_t knd) {
+    return ((kind & knd) > 0);
+}
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
-void read_network(DATAGRAM dtg) {
-
-
-
-
-	route(dtg.dest,dtg);
-	//selective_flood((char *) &dtg, DATAGRAM_SIZE(dtg), whichlink(dtg.dest));
-
-	//read_datalink(link, dtg);
+void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet) {
+	printf("Call write_network\n");
+	DATAGRAM dtg;
+	dtg.src = nodeinfo.address;
+	dtg.dest = address;
+	size_t datagram_length = length;
+	memcpy(&(dtg.payload), packet, datagram_length);
+	dtg.length = length;
+	dtg.kind = kind | __TRANSPORT__;
+	dtg.timesent = nodeinfo.time_in_usec;
+	route(dtg);
+	//queue_add(datagram_queue, &dtg, DATAGRAM_SIZE(dtg));
+	//printf("Size of the queue=%d\n", queue_nitems(datagram_queue));
 }
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
-void write_network(int link, DATAGRAM dtg, int length)
-{
-	switch (dtg.kind) {
-		case DISCOVER:
-			doDiscovery(link,dtg);
-			break;
-		case ROUTING:
-
-			break;
-		case TRANSPORT:
-
-			break;
-		default:
-			break;
+void read_network(int link, size_t length, char * datagram) {
+	DATAGRAM dtg;
+	memcpy(&dtg,datagram,length);
+	printf("Received checksum=%d\n",dtg.checksum);
+	uint16_t checksum = dtg.checksum;
+	dtg.checksum = 0;
+	size_t len = DATAGRAM_SIZE(dtg);
+	uint16_t checksum_to_compare = CNET_ccitt((unsigned char *) &dtg, len);
+	if (checksum_to_compare != checksum) {
+		printf("BAD checksum - ignored\n");
+		return; // bad checksum, ignore frame
 	}
-
-
-	// if not this host, send further
-	// update routing tables
-	// send it further
-	CHECK(up_to_network(dtg, length, link));
+	printf("Dispatching %d...\n",dtg.kind);
+	//Dispatch the datagram
+	if (is_kind(dtg.kind,__DISCOVER__))
+		do_discovery(link, dtg);
+	if (is_kind(dtg.kind,__ROUTING__))
+		do_routing(link, dtg);
+	if (is_kind(dtg.kind,__TRANSPORT__) ) {
+		printf("received datagram on transport level\n");
+		if (dtg.dest != nodeinfo.address) {
+			printf("forwarding..\n");
+			route(dtg);
+		} else {
+			read_transport(dtg.kind,dtg.length,dtg.src,(char*)dtg.payload);
+		}
+	}
 }
 //-----------------------------------------------------------------------------
-// detect a link for outcoming message
-int get_next_link_for_dest(CnetAddr destaddr)
-{
-	return 1;
+/* Allocate a datagram*/
+DATAGRAM* alloc_datagram(uint8_t prot, int src, int dest, char *p, uint16_t len) {
+
+	DATAGRAM* np;
+	//allocate memory for network packet
+	size_t plen = sizeof(DATAGRAM) + len;
+	np = (DATAGRAM *) malloc(plen);
+	np->kind = prot;
+	np->src = src;
+	np->dest = dest;
+	//np->hopCount = MAX_HOP_COUNT;
+	np->length = len;
+	memcpy(np->payload, p, len);
+	return np;
 }
 //-----------------------------------------------------------------------------
-// detect fragmentation size for the specified link
-int get_mtu_for_link(int link)
-{
-	return 96;
-}
-
-/* Allocate a datagram
-*/
-/*DATAGRAM allocNetPacket(int prot, int src, int dest, char *p, int len) {
-
-  int plen;
-  DATAGRAM np;
-
-   //allocate memory for network packet
-  plen = sizeof(DATAGRAM) + len;
-
-  np = (DATAGRAM) malloc(plen);
-
-  np.kind = prot;
-  np.src = src;
-  np.dest = dest;
-  //np->hopCount = MAX_HOP_COUNT;
-  np.length = len;
-  memcpy(np.payload, p, len);
-
-  return np;
-}*/
-//-----------------------------------------------------------------------------
-/* send a packet to link from Node Address */
-void send_packet(CnetAddr addr, DATAGRAM datagram)
-{
-
-  int link;
-
-  /* get link for node */
-  link = get_next_link_for_dest(addr);
-
-  send_packet_to_link(link, datagram);
+/* send a packet to address */
+void send_packet(CnetAddr addr, DATAGRAM datagram) {
+	int link;
+	/* get link for node */
+	link = get_next_link_for_dest(addr);
+	send_packet_to_link(link, datagram);
 }
 
 //-----------------------------------------------------------------------------
-/* send a packet to link */
-void send_packet_to_link(int link, DATAGRAM datagram)
-{
-
-  int size;
-
-  /* size of this packet */
-  size = DATAGRAM_SIZE(datagram);
-
-  /* send packet down to link layer */
-  write_datalink(link, (char *)&datagram, size);
-
+/* send a packet to the link */
+void send_packet_to_link(int link, DATAGRAM datagram) {
+	int size;
+	/* size of this packet */
+	size = DATAGRAM_SIZE(datagram);
+	datagram.checksum = 0;
+	datagram.checksum = CNET_ccitt((unsigned char *) &datagram, size);
+	/* send packet down to link layer */
+	write_datalink(link, (char *) &datagram, size);
 }
+//-----------------------------------------------------------------------------
+//broadcast datagram to all links(excluded one)
+void broadcast_packet(DATAGRAM dtg, int exclude_link) {
+	int i = 0;
+	for (i = 0; i < nodeinfo.nlinks; i++) {
+		int link = i + 1; //link number
+		if (link != exclude_link) {
+			send_packet_to_link(link, dtg);
+		}
+	}
+}
+//-----------------------------------------------------------------------------
+void shutdown_network() {
+
+	shutdown_datalink();
+}
+//-----------------------------------------------------------------------------
