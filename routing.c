@@ -166,7 +166,14 @@ void do_routing(int link,DATAGRAM datagram)
 			uint16_t request_size = sizeof(r_packet);
 			DATAGRAM* r_datagram = alloc_datagram(__ROUTING__,r_packet.source,r_packet.dest,
 					(char*)&r_packet,request_size);
-			broadcast_packet(*r_datagram,link);
+			//broadcast if no route is known
+			if (is_route_exists(r_packet.dest)==0) {
+				broadcast_packet(*r_datagram,link);
+			} else {
+				//send to dest directly
+				int dest_link = get_next_link_for_dest(r_packet.dest);
+				send_packet_to_link(dest_link,*r_datagram);
+			}
 			break;
 		case RREP:
 			printf("Received rrep on %d link=%d\n",nodeinfo.address,link);

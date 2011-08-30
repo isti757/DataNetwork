@@ -176,11 +176,13 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
 // takes a pending packet out of the waiting queue, fragments it and transmits
 // fragment by fragment
 void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
-	printf("Flushing queue %d\n",queue_nitems(fragment_queue));
+	printf("Flushing transport queue %d\n",queue_nitems(fragment_queue));
 	if (queue_nitems(fragment_queue) > 50) {
+		//if (nodeinfo.address==182 || nodeinfo.address==134)
 		CNET_disable_application(ALLNODES);
 	}
 	if (queue_nitems(fragment_queue) == 0) {
+		//if (nodeinfo.address==182 || nodeinfo.address==134)
 		CNET_enable_application(ALLNODES);
 	}
     if (queue_nitems(fragment_queue) != 0) {
@@ -242,7 +244,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
             free(frg);
         }
-        CnetTime timeout = 100000;
+        CnetTime timeout = 10000;
         flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) -1);
     }
 
@@ -538,13 +540,6 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
         CnetTime timeout = 1;
         flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) -1);
     }
-    if (queue_nitems(fragment_queue) > 50) {
-    	CNET_disable_application(ALLNODES);
-    }
-    if (queue_nitems(fragment_queue) == 0) {
-    	CNET_enable_application(ALLNODES);
-    }
-
     // stop queueing once there is more to queue and already buffered
     // than in the sliding window
     int table_ind = find(destaddr);
@@ -581,7 +576,7 @@ void init_transport()
 void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
 	if (sg==DISCOVERY_FINISHED) {
 		printf("Discovery finished\n");
-		//if (nodeinfo.address==182)
+		//if (nodeinfo.address==182 || nodeinfo.address==134)
 		CNET_enable_application(ALLNODES);
 	}
 
