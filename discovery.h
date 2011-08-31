@@ -33,7 +33,9 @@ typedef struct {
   int type;
   int address;
   CnetTime timestamp;
-} DISCOVERYPACKET,*pDiscoveryPacket;
+} __attribute__((packed)) DISCOVERY_PACKET;
+
+#define DISCOVERY_PACKET_SIZE(pkt) (2*sizeof(int)+sizeof(CnetTime))
 //-----------------------------------------------------------------------------
 extern void init_discovery();
 //-----------------------------------------------------------------------------
