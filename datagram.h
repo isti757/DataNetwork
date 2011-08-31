@@ -9,16 +9,18 @@
 #define DATAGRAM_H_
 
 #include <cnet.h>
+
 #include "packet.h"
-#define MAXFRAMESIZE MAX_MESSAGE_SIZE + 4
+
+//-----------------------------------------------------------------------------
+// types of signal exchange data
 typedef enum {
         CONGESTION = 1,
         DISCOVERY_FINISHED = 2
-
 } SIGNALKIND;
-typedef	intptr_t SIGNALDATA;
-
+typedef	CnetData SIGNALDATA;
 //-----------------------------------------------------------------------------
+// types of message exchange data
 const static uint8_t
     __ACK__ = 1,
     __NACK__ = 2,
@@ -29,25 +31,25 @@ const static uint8_t
     __DISCOVER__ = 16,
     __ROUTING__ = 32,
     __TRANSPORT__ = 64; // network layer
-
 //-----------------------------------------------------------------------------
+static int is_kind(uint8_t kind, uint8_t knd) {
+    return ((kind & knd) > 0);
+}
 //-----------------------------------------------------------------------------
+// definition of datagram
+#define MAXFRAMESIZE MAX_MESSAGE_SIZE + 4
 typedef struct {
     uint8_t src;       // source address
     uint8_t dest;      // destination address
     uint8_t kind;      // packet kind
-
     uint16_t length;   // length of payload
-
-    uint16_t checksum;  // checksum of entire datagram
-
+    uint16_t checksum; // checksum of entire datagram
     CnetTime timesent; // in microseconds //TODO if we need timesent?
-
     char payload[MAXFRAMESIZE];
-
 } __attribute__((packed)) DATAGRAM;
 
 #define DATAGRAM_HEADER_SIZE  (3*sizeof(uint8_t)+2*sizeof(uint16_t)+sizeof(CnetTime))
 #define DATAGRAM_SIZE(d)      (DATAGRAM_HEADER_SIZE + d.length)
+//-----------------------------------------------------------------------------
 
 #endif /* DATAGRAM_H_ */

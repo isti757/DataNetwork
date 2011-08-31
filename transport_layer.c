@@ -6,14 +6,11 @@
  */
 #include <limits.h>
 
-#include "transport_layer.h"
+#include "debug.h"
 #include "routing.h"
 #include "datagram.h"
+#include "transport_layer.h"
 
-//packet queue
-//QUEUE packet_queue;
-//flush the transport queue timer
-//CnetTimerID flush_transport_queue_timer;
 //-----------------------------------------------------------------------------
 // queue containing packets waiting dispatch
 QUEUE fragment_queue;
@@ -24,6 +21,7 @@ CnetTimerID flush_queue_timer = NULLTIMER;
 typedef struct sliding_window {
     CnetAddr address;
     CnetTimerID separate_ack_timer;
+    //-------------------------------------------------------------------------
     // sliding window variables
     PACKET inpacket[NRBUFS];     // space for assembling incoming packet
     PACKET outpacket[NRBUFS];    // space for storing packets for resending
@@ -41,6 +39,7 @@ typedef struct sliding_window {
     int nbuffered;
     int lastfullfragment;
     int nonack;
+    //-------------------------------------------------------------------------
     // fragmentation variables
     uint32_t arrivedacks[NRBUFS][MAXFR];
     uint32_t arrivedfrags[NRBUFS][MAXFR];
@@ -66,8 +65,7 @@ static void init_sliding_window() {
 // finds a sliding window for the corresponding address and returns a
 // table index, initializing table entry if neccessary
 static int find(CnetAddr address) {
-    int t;
-    for(t=0; t < table_size ; t++)
+    for(int t = 0; t < table_size ; t++)
     if(table[t].address == address)
         return t;
 
@@ -83,8 +81,7 @@ static int find(CnetAddr address) {
     table[table_size].lastfullfragment   = -1;
     table[table_size].nonack             = TRUE;
 
-    int b;
-    for (b = 0; b < NRBUFS; b++) {
+    for (int b = 0; b < NRBUFS; b++) {
         table[table_size].arrived[b]    = FALSE;
         table[table_size].timers[b]     = NULLTIMER;
         table[table_size].inlengths[b]  = 0;
@@ -96,11 +93,10 @@ static int find(CnetAddr address) {
         table[table_size].mtusize[b]         = 0;
         table[table_size].lastfrag[b]        = -1;
 
-        int f;
-        for (f = 0; f < MAXFR; f++)
+        for (int f = 0; f < MAXFR; f++)
             table[table_size].arrivedacks[b][f] = FALSE;
 
-        for (f = 0; f < MAXFR; f++)
+        for (int f = 0; f < MAXFR; f++)
             table[table_size].arrivedfrags[b][f] = FALSE;
     }
 
@@ -133,7 +129,7 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
     table[table_ind].separate_ack_timer = NULLTIMER;
 
     // figure out where to send
-    int link = get_next_link_for_dest(dest);//
+    int link = get_next_link_for_dest(dest);
 
     // piggyback the acknowledgement
     int last_frg_ind = table[table_ind].frameexpected;
@@ -152,7 +148,7 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
     }
 
     if (is_kind(kind, __ACK__)) {
-        printf("i\t\tACK transmitted seq: %d seg: %d\n", packet.ackseqno, packet.acksegid);
+        T_DEBUG2("i\t\tACK transmitted seq: %d seg: %d\n", packet.ackseqno, packet.acksegid);
     }
 
 //    if(is_kind(kind, __NACK__)) {
@@ -162,13 +158,14 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
     // if transmitting data, set up a retransmit timer
     if (is_kind(kind, __DATA__)) {
         uint8_t seqno = packet.seqno;
-        float prop_delay = linkinfo[link].propagationdelay;
-        CnetTime timeout = 2.5 * (prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / linkinfo[link].bandwidth));
+        double prop_delay = linkinfo[link].propagationdelay;
+        double bandwidth = linkinfo[link].bandwidth;
+        CnetTime timeout = 10.0 * (prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / bandwidth));
 
         if(table[table_ind].timers[seqno % NRBUFS] == NULLTIMER)
             table[table_ind].timers[seqno % NRBUFS] = CNET_start_timer(EV_TIMER1, timeout, ((CnetData)(dest << 8) | seqno));
 
-        printf("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", packet.seqno, packet.segid, packet_len-PACKET_HEADER_SIZE);
+        T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", packet.seqno, packet.segid, packet_len-PACKET_HEADER_SIZE);
     }
 
     write_network(kind, dest, packet_len, (char*)&packet);
@@ -177,8 +174,8 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
 // takes a pending packet out of the waiting queue, fragments it and transmits
 // fragment by fragment
 void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
-	printf("Flushing transport queue %d\n",queue_nitems(fragment_queue));
-	if(queue_nitems(fragment_queue) > 20)
+	T_DEBUG1("Flushing transport queue %d\n", queue_nitems(fragment_queue));
+	if(queue_nitems(fragment_queue) > 10)
         CNET_disable_application(ALLNODES);
 
     if (queue_nitems(fragment_queue) != 0) {
@@ -189,6 +186,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         int table_ind = find(frg->dest);
         int mtu = get_mtu(frg->dest);
 
+        // if path is discovered and there is space in sliding window
         if (table[table_ind].nbuffered < NRBUFS && mtu != -1) {
             // get the first packet in the queue
             frg = queue_remove(fragment_queue, &frag_len);
@@ -197,7 +195,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
             size_t total_mess_len = frg->len;
             int nf = table[table_ind].nextframetosend % NRBUFS;
             if (++table[table_ind].nbuffered == NRBUFS)
-                CNET_disable_application(ALLNODES);
+                CNET_disable_application(frg->dest);
 
             // copy first packet to the sliding window
             table[table_ind].outlengths[nf] = frg->len;
@@ -218,14 +216,15 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
                 else
                     frg_seg_len = mtu;
 
+                // find out if its last in sequence
                 uint8_t kind = __DATA__;
                 if (total_length + mtu >= frg->len) {
                     kind |= __LASTSGM__;
                 }
 
+                // copy part of a message and determine its segment number
                 size_t frg_seg_len_t = frg_seg_len;
-                memcpy((char*) frg_seg.msg, (char*) frg->pkt.msg + segid * mtu,
-                        frg_seg_len_t);
+                memcpy((char*) frg_seg.msg, (char*) frg->pkt.msg + segid * mtu, frg_seg_len_t);
                 frg_seg.seqno = table[table_ind].nextframetosend;
                 frg_seg.segid = segid;
 
@@ -240,10 +239,10 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
             free(frg);
         }
-        CnetTime timeout = 10000;
+        CnetTime timeout = 1;
         flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) -1);
     }
-
+    // avoid polling
     else
         flush_queue_timer = NULLTIMER;
 }
@@ -251,10 +250,13 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 // called to handle an incoming packet from network layer. based on the type
 // of packet carried either marks fragments as acknowledged or fragments
 // arrived.
-void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
+void read_transport(uint8_t kind, uint16_t length, CnetAddr src, char * packet) {
+
+    // copy packet content to a local variable
 	PACKET pkt;
 	size_t len = length;
-	memcpy(&pkt,packet,len);
+	memcpy(&pkt, packet, len);
+
     // index of the sliding window for the source
     int table_ind = find(src);
 
@@ -262,7 +264,7 @@ void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
     if (is_kind(kind, __ACK__)) {
         if (between(table[table_ind].ackexpected, pkt.ackseqno, table[table_ind].nextframetosend)) {
 
-            printf("a\t\tACK arrived seq: %d seg: %d\n", pkt.ackseqno, pkt.acksegid);
+            T_DEBUG2("a\t\tACK arrived seq: %d seg: %d\n", pkt.ackseqno, pkt.acksegid);
 
             int acked = FALSE;
 
@@ -311,8 +313,8 @@ void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
 
                 table[table_ind].timers[ackexpected_mod] = NULLTIMER;
             }
-            if (acked)
-                CNET_enable_application(ALLNODES);
+            if (acked && queue_nitems(fragment_queue) < 10)
+                CNET_enable_application(src);
         }
     }
 //    if (is_kind(kind, __NACK__) && between(table[table_ind].ackexpected, (pkt.ackseqno+1) % (MAXSEQ+1), table[table_ind].nextframetosend)) {
@@ -357,7 +359,7 @@ void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
 //            transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
 //        }
 
-        printf("i\t\tDATA arrived seq: %d seg: %d bet: %d arr: %d\n", pkt.seqno, pkt.segid,
+        T_DEBUG4("i\t\tDATA arrived seq: %d seg: %d bet: %d arr: %d\n", pkt.seqno, pkt.segid,
                between(table[table_ind].frameexpected, pkt.seqno, table[table_ind].toofar),
                table[table_ind].arrivedfrags[pkt.seqno % NRBUFS][pkt.segid]);
 
@@ -392,10 +394,9 @@ void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
 
             // find if all fragments arrived
             if (table[table_ind].numfrags[pkt_seqno_mod] > 0) {
-                int f;
                 table[table_ind].arrived[pkt_seqno_mod] = TRUE;
                 table[table_ind].lastfrag[pkt_seqno_mod] = -1;
-                for (f = 0; f < table[table_ind].numfrags[pkt_seqno_mod]; f++) {
+                for (int f = 0; f < table[table_ind].numfrags[pkt_seqno_mod]; f++) {
                     if (table[table_ind].arrivedfrags[pkt_seqno_mod][f] == FALSE) {
                         table[table_ind].arrived[pkt_seqno_mod] = FALSE;
                         break;
@@ -414,14 +415,13 @@ void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
 
                 size_t len = table[table_ind].inlengths[frameexpected_mod];
 
-                printf("^\t\tto application len: %llu seq: %d\n", len, table[table_ind].frameexpected);
+                T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, table[table_ind].frameexpected);
 
                 // reset the variables for next packet
                 table[table_ind].inlengths[frameexpected_mod] = 0;
                 table[table_ind].arrived[frameexpected_mod] = FALSE;
 
-                int f;
-                for (f = 0; f < table[table_ind].numfrags[frameexpected_mod]; f++)
+                for (int f = 0; f < table[table_ind].numfrags[frameexpected_mod]; f++)
                     table[table_ind].arrivedfrags[frameexpected_mod][f] = FALSE;
 
                 table[table_ind].mtusize[frameexpected_mod] = 0;
@@ -429,6 +429,7 @@ void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
                 table[table_ind].lastfullfragment = table[table_ind].lastfrag[frameexpected_mod];
                 table[table_ind].lastfrag[frameexpected_mod] = -1;
 
+                // shift sliding window
                 inc(&(table[table_ind].frameexpected));
                 inc(&(table[table_ind].toofar));
 
@@ -444,16 +445,15 @@ void read_transport(uint8_t kind,uint16_t length,CnetAddr src,char * packet) {
             }
         }
         else
-            printf("i\t\tDATA ignored seq: %d seg: %d\n", pkt.seqno, pkt.segid);
+            T_DEBUG2("i\t\tDATA ignored seq: %d seg: %d\n", pkt.seqno, pkt.segid);
     }
 }
 //-----------------------------------------------------------------------------
 // timeout for a separate acknowledgement
 void separate_ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
-
     uint8_t src = (uint8_t) data;
-    int table_ind = find(src);
 
+    int table_ind = find(src);
     table[table_ind].separate_ack_timer = NULLTIMER;
 
     PACKET frg;
@@ -466,10 +466,11 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
     uint8_t seqno = (int) data & UCHAR_MAX;
     uint8_t seqno_mod = seqno % NRBUFS;
+
+    T_DEBUG1("i\t\tDATA timeout seq: %d\n", seqno);
+
+    // index of a sliding window
     int table_ind = find((CnetAddr)((data >> 8) & UCHAR_MAX));
-
-    printf("i\t\tDATA timeout seq: %d\n", seqno);
-
     table[table_ind].timers[seqno_mod] = NULLTIMER;
 
     // find out where to send and how to fragment
@@ -479,11 +480,11 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     uint32_t segid = 0;
     uint32_t total_length = 0;
 
+    // total length of a packet
     int pkt_len = table[table_ind].outlengths[table[table_ind].outpacket[seqno_mod].seqno % NRBUFS];
 
     // fragment timouted packet and transmit
     while (total_length < pkt_len) {
-
         PACKET frg_seg;
 
         size_t frg_seg_len;
@@ -512,7 +513,6 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 //-----------------------------------------------------------------------------
 // read incoming message from application to transport layer
 void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
-
     CnetAddr destaddr;
 
     FRAGMENT frg;
@@ -541,32 +541,27 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 //-----------------------------------------------------------------------------
 // clean all allocated memory
 static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
+    fprintf(stderr, "address: %d - transport queue: %d packets\n", nodeinfo.address, queue_nitems(fragment_queue));
     queue_free(fragment_queue);
-    
 	shutdown_network();
 }
 //-----------------------------------------------------------------------------
-void init_transport()
-{
-	fragment_queue = queue_new();
-
+void init_transport() {
 	init_sliding_window();
 
 	CHECK(CNET_set_handler( EV_TIMER1, ack_timeout, 0));
 	CHECK(CNET_set_handler( EV_TIMER2, flush_queue, 0));
 	CHECK(CNET_set_handler( EV_TIMER3, separate_ack_timeout, 0));
-
 	CHECK(CNET_set_handler( EV_SHUTDOWN, shutdown, 0));
-
 	CHECK(CNET_set_handler( EV_APPLICATIONREADY, write_transport, 0));
 
+	fragment_queue = queue_new();
 	flush_queue_timer = NULLTIMER;
 }
 //-----------------------------------------------------------------------------
 void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
-	if (sg==DISCOVERY_FINISHED) {
-		printf("Discovery finished\n");
-		//if (nodeinfo.address==182 || nodeinfo.address==134)
+	if (sg == DISCOVERY_FINISHED) {
+		T_DEBUG("Discovery finished\n");
 		CNET_enable_application(ALLNODES);
 	}
 }

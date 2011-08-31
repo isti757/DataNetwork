@@ -8,11 +8,14 @@
 #ifndef NETWORK_LAYER_H_
 #define NETWORK_LAYER_H_
 
-#include "datagram.h"
 #include <cnetsupport.h>
+
+#include "datagram.h"
+#include "discovery.h"
+#include "routing.h"
+
 #include "datalink_layer.h"
 #include "transport_layer.h"
-#include "discovery.h"
 
 //-----------------------------------------------------------------------------
 // initialize network layer
@@ -34,9 +37,10 @@ extern void send_packet_to_link(int link, DATAGRAM datagram);
 extern void broadcast_packet(DATAGRAM dtg, int exclude_link);
 //-----------------------------------------------------------------------------
 //allocated a datagram
-extern DATAGRAM* alloc_datagram(uint8_t prot, int src, int dest, char *data, uint16_t len);
+extern DATAGRAM alloc_datagram(uint8_t prot, int src, int dest, char *data, uint16_t len);
 //-----------------------------------------------------------------------------
 // clean the memory
 extern void shutdown_network();
 //-----------------------------------------------------------------------------
+
 #endif /* NETWORK_LAYER_H_ */

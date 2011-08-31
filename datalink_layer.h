@@ -9,8 +9,11 @@
 #define DATALINK_LAYER_H_
 
 #include "datagram.h"
+#include "dl_frame.h"
+#include "datalink_container.h"
 #include "network_layer.h"
 
+//-----------------------------------------------------------------------------
 #define EV_DATALINK_FLUSH EV_TIMER6
 #define EV_DATALINK_FREE EV_TIMER5
 //-----------------------------------------------------------------------------

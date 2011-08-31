@@ -6,20 +6,22 @@
  */
 #include <cnet.h>
 #include <stdlib.h>
-#include "datalink_layer.h"
 
 #ifndef ROUTING_H_
 #define ROUTING_H_
 
+//-----------------------------------------------------------------------------
 #define EV_ROUTE_PENDING_TIMER  EV_TIMER7
-//timeout for waiting route response
+// timeout for waiting route response
 #define ROUTE_REQUEST_TIMEOUT 1000000
-//the maximum number of hosts
+// the maximum number of hosts
 #define MAX_HOSTS_NUMBER 256
-
-/**
- * A network routing table for each node
- */
+//-----------------------------------------------------------------------------
+// types of route requests
+#define RREQ   1
+#define RREP   2
+//-----------------------------------------------------------------------------
+// definition of a network routing table for each node
 typedef struct {
     CnetAddr	address;
     long	minhops;
@@ -27,27 +29,13 @@ typedef struct {
     int 	min_mtu;
     CnetTime	total_delay;
 } ROUTE_TABLE;
-
-/*
- * A Local history table for routing
- */
+//-----------------------------------------------------------------------------
+// definition of a local history table for routing
 typedef struct {
 	CnetAddr source;
 	int req_id;
 } HISTORY_TABLE;
-
-
-//The routing table
-ROUTE_TABLE	*route_table;
-int route_table_size;
-//The history table
-HISTORY_TABLE *history_table;
-int history_table_size;
-//route request counter
-int route_req_id;
-//types of route requests
-#define RREQ   1
-#define RREP   2
+//-----------------------------------------------------------------------------
 //A route request packet
 typedef struct {
 	int type;
@@ -58,7 +46,6 @@ typedef struct {
 	int min_mtu;//a minimum MTU value on the way to destination
 	CnetTime total_delay;//a total propagation delay on the way to destination
 } ROUTE_PACKET;
-
 //-----------------------------------------------------------------------------
 // initialize the routing
 extern void init_routing();
@@ -66,8 +53,8 @@ extern void init_routing();
 // route a packet
 extern void route(DATAGRAM);
 //-----------------------------------------------------------------------------
-//Check if a route for specified address exists in routing table
-extern int is_route_exists(CnetAddr address);
+// check if a route for specified address exists in routing table
+extern int route_exists(CnetAddr address);
 //-----------------------------------------------------------------------------
 //send a route request to find address
 extern void send_route_request(CnetAddr address);
@@ -88,4 +75,8 @@ extern int get_mtu(CnetAddr);
 extern int get_propagation_delay(CnetAddr);
 //-----------------------------------------------------------------------------
 extern void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
+//-----------------------------------------------------------------------------
+extern void shutdown_routing();
+//-----------------------------------------------------------------------------
+
 #endif /* ROUTING_H_ */
