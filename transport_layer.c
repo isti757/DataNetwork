@@ -299,7 +299,7 @@ void read_transport(uint8_t kind, uint16_t length, CnetAddr src, char * packet) 
                 // reset the variables for the next packet
                 --table[table_ind].nbuffered;
 
-                for (i = 0; i < table[table_ind].numacks[ackexpected_mod]; i++)
+                for (int i = 0; i < table[table_ind].numacks[ackexpected_mod]; i++)
                     table[table_ind].arrivedacks[ackexpected_mod][i] = FALSE;
 
                 table[table_ind].numacks[ackexpected_mod] = 0;
