@@ -174,8 +174,8 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
 // takes a pending packet out of the waiting queue, fragments it and transmits
 // fragment by fragment
 void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
-	T_DEBUG1("Flushing transport queue %d\n", queue_nitems(fragment_queue));
-	if(queue_nitems(fragment_queue) > 10)
+    T_DEBUG1("Flushing transport queue %d\n", queue_nitems(fragment_queue));
+    if(queue_nitems(fragment_queue) > 10)
         CNET_disable_application(ALLNODES);
 
     if (queue_nitems(fragment_queue) != 0) {
@@ -276,14 +276,13 @@ void read_transport(uint8_t kind, uint16_t length, CnetAddr src, char * packet) 
                 int ackexpected_mod = table[table_ind].ackexpected % NRBUFS;
 
                 // check that all of the fragments are acknowledged
-                int i;
                 if (table[table_ind].ackexpected != pkt.ackseqno) {
-                    for (i = 0; i < table[table_ind].numacks[ackexpected_mod]; i++) {
+                    for (int i = 0; i < table[table_ind].numacks[ackexpected_mod]; i++) {
                         table[table_ind].arrivedacks[ackexpected_mod][i] = TRUE;
                     }
                     table[table_ind].allackssarrived[ackexpected_mod] = TRUE;
                 } else {
-                    for (i = 0; i <= pkt.acksegid; i++) {
+                    for (int i = 0; i <= pkt.acksegid; i++) {
                         table[table_ind].arrivedacks[pktackseqno][i] = TRUE;
                     }
                     table[table_ind].allackssarrived[pktackseqno] =
