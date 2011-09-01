@@ -162,7 +162,7 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
         uint8_t seqno = packet.seqno;
         double prop_delay = linkinfo[link].propagationdelay;
         double bandwidth = linkinfo[link].bandwidth;
-        CnetTime timeout = 10.0 * (prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / bandwidth));
+        CnetTime timeout = 30.0 * (prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / bandwidth));
 
         if(table[table_ind].timers[seqno % NRBUFS] == NULLTIMER)
             table[table_ind].timers[seqno % NRBUFS] = CNET_start_timer(EV_TIMER1, timeout, ((CnetData)(dest << 8) | seqno));
