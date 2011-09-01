@@ -123,7 +123,6 @@ static int between(int a, int b, int c) {
 // gives a packet to the network layer setting the piggybacked acknowledgement
 // when appropriate
 void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET packet) {
-
     int table_ind = find(dest);
 
     // no need to send a separate ack
