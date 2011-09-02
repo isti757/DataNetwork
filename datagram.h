@@ -44,7 +44,6 @@ typedef struct {
     uint8_t kind;      // packet kind
     uint16_t length;   // length of payload
     uint16_t checksum; // checksum of entire datagram
-    CnetTime timesent; // in microseconds //TODO if we need timesent?
     char payload[MAXFRAMESIZE];
 } __attribute__((packed)) DATAGRAM;
 

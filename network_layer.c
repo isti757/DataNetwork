@@ -30,7 +30,6 @@ void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet)
 	dtg.dest = address;
     dtg.kind = kind | __TRANSPORT__;
 	dtg.length = length;
-	dtg.timesent = nodeinfo.time_in_usec;
 
 	size_t packet_length = length;
 	memcpy(&(dtg.payload), packet, packet_length);

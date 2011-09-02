@@ -30,9 +30,9 @@
 //-----------------------------------------------------------------------------
 // discovery message format
 typedef struct {
-  int type;
-  int address;
-  CnetTime timestamp;
+  uint8_t type;
+  uint8_t address;
+  CnetTime delay;
 } DISCOVERYPACKET,*pDiscoveryPacket;
 //-----------------------------------------------------------------------------
 extern void init_discovery();
