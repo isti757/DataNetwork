@@ -44,14 +44,14 @@ void read_network(int link, size_t length, char * datagram) {
 	memcpy(&dtg, datagram, length);
 	N_DEBUG1("Received checksum=%d\n", dtg.checksum);
 	// TODO: fix checksums
-//	uint16_t checksum = dtg.checksum;
-//	dtg.checksum = 0;
-//	size_t len = DATAGRAM_SIZE(dtg);
-//	uint16_t checksum_to_compare = CNET_ccitt((unsigned char *) &dtg, len);
-//	if (checksum_to_compare != checksum) {
-//	    N_DEBUG("BAD checksum - ignored\n");
-//		return; // bad checksum, ignore frame
-//	}
+	uint16_t checksum = dtg.checksum;
+	dtg.checksum = 0;
+	size_t len = DATAGRAM_SIZE(dtg);
+	uint16_t checksum_to_compare = CNET_ccitt((unsigned char *) &dtg, len);
+	if (checksum_to_compare != checksum) {
+	    N_DEBUG("BAD checksum - ignored\n");
+		return; // bad checksum, ignore frame
+	}
 	N_DEBUG1("Dispatching %d...\n",dtg.kind);
 
 	//Dispatch the datagram

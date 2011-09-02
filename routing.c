@@ -268,7 +268,7 @@ void send_route_request(CnetAddr destaddr) {
 int get_mtu(CnetAddr address) {
     if (route_exists(address) == 1) {
         int t = find_address(address);
-        return route_table[t].min_mtu;
+        return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE;
     } else {
         send_route_request(address);
         return -1;
