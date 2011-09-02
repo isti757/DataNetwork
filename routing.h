@@ -28,13 +28,13 @@ typedef struct {
     long	minhop_link;
     int 	min_mtu;
     CnetTime	total_delay;
-} ROUTE_TABLE;
+} __attribute__((packed)) ROUTE_TABLE;
 //-----------------------------------------------------------------------------
 // definition of a local history table for routing
 typedef struct {
 	CnetAddr source;
 	int req_id;
-} HISTORY_TABLE;
+} __attribute__((packed)) HISTORY_TABLE;
 //-----------------------------------------------------------------------------
 //A route request packet //TODO размер?
 typedef struct {
@@ -45,7 +45,9 @@ typedef struct {
 	uint16_t req_id; //a local counter maintained separately by each node and incremented each time a ROUTE REQUEST is broadcast
 	uint16_t min_mtu;//a minimum MTU value on the way to destination
 	CnetTime total_delay;//a total propagation delay on the way to destination
-} ROUTE_PACKET;
+} __attribute__((packed)) ROUTE_PACKET;
+
+#define ROUTE_PACKET_SIZE(pkt) (4*sizeof(int)+2*sizeof(uint8_t)+sizeof(CnetTime))
 //-----------------------------------------------------------------------------
 // initialize the routing
 extern void init_routing();

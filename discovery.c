@@ -27,7 +27,7 @@ void init_discovery() {
 //-----------------------------------------------------------------------------
 /* process a discovery protocol packet */
 void do_discovery(int link, DATAGRAM datagram) {
-    DISCOVERYPACKET p;
+    DISCOVERY_PACKET p;
     size_t datagram_length = datagram.length;
     memcpy(&p, &datagram.payload, datagram_length);
 
@@ -36,13 +36,13 @@ void do_discovery(int link, DATAGRAM datagram) {
     case Who_R_U:
         // request that we identify ourselves - send I_Am reply
     	;
-        DISCOVERYPACKET dpkt;
+        DISCOVERY_PACKET dpkt;
         dpkt.type = I_AM;
         dpkt.address = nodeinfo.address; // my address
         dpkt.delay = nodeinfo.time_in_usec-p.delay;    // return sender's time stamp
 
         // initialize and send a packet
-        uint16_t packet_size = sizeof(dpkt);
+        uint16_t packet_size = DISCOVERY_PACKET_SIZE(dpkt);
         DATAGRAM np = alloc_datagram(__DISCOVER__, nodeinfo.address, p.address, (char *) &dpkt, packet_size);
         send_packet_to_link(link, np);
         break;
@@ -59,12 +59,12 @@ void do_discovery(int link, DATAGRAM datagram) {
 // poll our neighbor
 void pollNeighbor(int link) {
     // send a Poll message
-    DISCOVERYPACKET p;
+    DISCOVERY_PACKET p;
     p.type = Who_R_U;                    //the request
     p.address = nodeinfo.address;        //my address
     p.delay = nodeinfo.time_in_usec; //time we send query
 
-    uint16_t packet_size = sizeof(p);
+    uint16_t packet_size = DISCOVERY_PACKET_SIZE(p);
     DATAGRAM np = alloc_datagram(__DISCOVER__, nodeinfo.address, -1, (char *) &p, packet_size);
 
     send_packet_to_link(link, np);

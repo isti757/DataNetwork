@@ -84,9 +84,8 @@ DATAGRAM alloc_datagram(uint8_t prot, int src, int dest, char *p, uint16_t len) 
 //-----------------------------------------------------------------------------
 // send a packet to address
 void send_packet(CnetAddr addr, DATAGRAM datagram) {
-	int link;
 	// get link for node
-	link = get_next_link_for_dest(addr);
+	int link = get_next_link_for_dest(addr);
 	send_packet_to_link(link, datagram);
 }
 //-----------------------------------------------------------------------------

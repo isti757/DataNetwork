@@ -171,7 +171,7 @@ void do_routing(int link, DATAGRAM datagram) {
             reply_packet.total_delay = linkinfo[link].propagationdelay;
             reply_packet.min_mtu = linkinfo[link].mtu;
 
-            uint16_t r_size = sizeof(reply_packet);
+            uint16_t r_size = ROUTE_PACKET_SIZE(reply_packet);
             DATAGRAM reply_datagram = alloc_datagram(__ROUTING__, r_packet.source, r_packet.dest, (char*) &reply_packet, r_size);
             send_packet_to_link(link, reply_datagram);
             break;
@@ -180,7 +180,7 @@ void do_routing(int link, DATAGRAM datagram) {
         // increment hop count
         r_packet.hop_count = r_packet.hop_count + 1;
         // rebroadcast the message
-        uint16_t request_size = sizeof(r_packet);
+        uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
         DATAGRAM r_datagram = alloc_datagram(__ROUTING__, r_packet.source, r_packet.dest, (char*) &r_packet, request_size);
 
         // broadcast if no route is known
@@ -214,7 +214,7 @@ void do_routing(int link, DATAGRAM datagram) {
             if (r_packet.min_mtu > linkinfo[reverse_route_link_id].mtu) {
                 r_packet.min_mtu = linkinfo[reverse_route_link_id].mtu;
             }
-            uint16_t reply_size = sizeof(r_packet);
+            uint16_t reply_size = ROUTE_PACKET_SIZE(r_packet);
             DATAGRAM reply_datagram = alloc_datagram(__ROUTING__, r_packet.source,
                                                      r_packet.dest, (char*) &r_packet,
                                                      reply_size);

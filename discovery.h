@@ -33,7 +33,9 @@ typedef struct {
   uint8_t type;
   uint8_t address;
   CnetTime delay;
-} DISCOVERYPACKET,*pDiscoveryPacket;
+} __attribute__((packed)) DISCOVERY_PACKET;
+
+#define DISCOVERY_PACKET_SIZE(pkt) (2*sizeof(uint8_t)+sizeof(CnetTime))
 //-----------------------------------------------------------------------------
 extern void init_discovery();
 //-----------------------------------------------------------------------------
