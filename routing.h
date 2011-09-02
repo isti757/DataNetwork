@@ -36,14 +36,14 @@ typedef struct {
 	int req_id;
 } __attribute__((packed)) HISTORY_TABLE;
 //-----------------------------------------------------------------------------
-//A route request packet
+//A route request packet //TODO размер?
 typedef struct {
-	int type;
+	uint8_t type;
 	uint8_t source;
 	uint8_t dest;
-	int hop_count;
-	int req_id; //a local counter maintained separately by each node and incremented each time a ROUTE REQUEST is broadcast
-	int min_mtu;//a minimum MTU value on the way to destination
+	uint16_t hop_count;//TODO is it correct size?
+	uint16_t req_id; //a local counter maintained separately by each node and incremented each time a ROUTE REQUEST is broadcast
+	uint16_t min_mtu;//a minimum MTU value on the way to destination
 	CnetTime total_delay;//a total propagation delay on the way to destination
 } __attribute__((packed)) ROUTE_PACKET;
 

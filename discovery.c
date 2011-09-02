@@ -35,11 +35,11 @@ void do_discovery(int link, DATAGRAM datagram) {
     switch (p.type) {
     case Who_R_U:
         // request that we identify ourselves - send I_Am reply
-        ;
+    	;
         DISCOVERY_PACKET dpkt;
         dpkt.type = I_AM;
         dpkt.address = nodeinfo.address; // my address
-        dpkt.timestamp = p.timestamp;    // return sender's time stamp
+        dpkt.delay = nodeinfo.time_in_usec-p.delay;    // return sender's time stamp
 
         // initialize and send a packet
         uint16_t packet_size = DISCOVERY_PACKET_SIZE(dpkt);
@@ -49,7 +49,7 @@ void do_discovery(int link, DATAGRAM datagram) {
     case I_AM:
         // response to our Who_R_U query
         N_DEBUG("learning table...\n");
-        learn_route_table(p.address, 0, link, linkinfo[link].mtu, linkinfo[link].propagationdelay);
+        learn_route_table(p.address, 0, link, linkinfo[link].mtu, p.delay);
         N_DEBUG2("Poll response from %d %d\n", link, nodeinfo.time_in_usec);
         response_status[link] = 1;
         break;
@@ -62,7 +62,7 @@ void pollNeighbor(int link) {
     DISCOVERY_PACKET p;
     p.type = Who_R_U;                    //the request
     p.address = nodeinfo.address;        //my address
-    p.timestamp = nodeinfo.time_in_usec; //time we send query
+    p.delay = nodeinfo.time_in_usec; //time we send query
 
     uint16_t packet_size = DISCOVERY_PACKET_SIZE(p);
     DATAGRAM np = alloc_datagram(__DISCOVER__, nodeinfo.address, -1, (char *) &p, packet_size);

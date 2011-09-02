@@ -33,9 +33,8 @@ void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet)
 	DATAGRAM dtg;
 	dtg.src = nodeinfo.address;
 	dtg.dest = address;
-	dtg.kind = kind | __TRANSPORT__;
-    dtg.length = length;
-	dtg.timesent = nodeinfo.time_in_usec;
+    dtg.kind = kind | __TRANSPORT__;
+	dtg.length = length;
 
 	size_t packet_length = length;
 	memcpy(&(dtg.payload), packet, packet_length);
@@ -50,14 +49,14 @@ void read_network(int link, size_t length, char * datagram) {
 	memcpy(&dtg, datagram, length);
 	N_DEBUG1("Received checksum=%d\n", dtg.checksum);
 	// TODO: fix checksums
-//	uint16_t checksum = dtg.checksum;
-//	dtg.checksum = 0;
-//	size_t len = DATAGRAM_SIZE(dtg);
-//	uint16_t checksum_to_compare = CNET_ccitt((unsigned char *) &dtg, len);
-//	if (checksum_to_compare != checksum) {
-//	    N_DEBUG("BAD checksum - ignored\n");
-//		return; // bad checksum, ignore frame
-//	}
+	uint16_t checksum = dtg.checksum;
+	dtg.checksum = 0;
+	size_t len = DATAGRAM_SIZE(dtg);
+	uint16_t checksum_to_compare = CNET_ccitt((unsigned char *) &dtg, len);
+	if (checksum_to_compare != checksum) {
+	    N_DEBUG("BAD checksum - ignored\n");
+		return; // bad checksum, ignore frame
+	}
 	N_DEBUG1("Dispatching %d...\n",dtg.kind);
 
 	//Dispatch the datagram

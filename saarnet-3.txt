@@ -10,7 +10,7 @@ messagerate = 100ms
 host SB {
 	x = 45388, y = 44424
 	address = 134
-	messagerate = 1ms
+	//messagerate = 1ms
 	
 	wan to HOM { LINK_GOOD(1, 3450) }
 	wan to SLS { LINK_GOOD(10, 2622) }

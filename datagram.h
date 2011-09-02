@@ -44,11 +44,10 @@ typedef struct {
     uint8_t kind;      // packet kind
     uint16_t length;   // length of payload
     uint16_t checksum; // checksum of entire datagram
-    CnetTime timesent; // in microseconds //TODO if we need timesent?
     char payload[MAXFRAMESIZE];
 } __attribute__((packed)) DATAGRAM;
 
-#define DATAGRAM_HEADER_SIZE  (3*sizeof(uint8_t)+2*sizeof(uint16_t)+sizeof(CnetTime))
+#define DATAGRAM_HEADER_SIZE  (3*sizeof(uint8_t)+2*sizeof(uint16_t))
 #define DATAGRAM_SIZE(d)      (DATAGRAM_HEADER_SIZE + d.length)
 //-----------------------------------------------------------------------------
 

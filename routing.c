@@ -142,6 +142,20 @@ void do_routing(int link, DATAGRAM datagram) {
         N_DEBUG("no entry in local history\n");
         // insert into local history table
         insert_local_history(r_packet.source, r_packet.req_id);
+        //set up mtu
+        if (r_packet.min_mtu==-1) {
+        	r_packet.min_mtu = linkinfo[link].mtu;
+        } else {
+        	//if this link mtu is less then set up the new mtu
+        	if (linkinfo[link].mtu < r_packet.min_mtu) {
+        		r_packet.min_mtu = linkinfo[link].mtu;
+        	}
+        }
+        //set up the total delay
+        r_packet.total_delay += linkinfo[link].propagationdelay;
+        N_DEBUG1("Total delay=%d\n",r_packet.total_delay);
+
+        //check if the route exists and learn the table
         if (route_exists(r_packet.source) == 0) {
             learn_route_table(r_packet.source, r_packet.hop_count, link,
                     r_packet.min_mtu, r_packet.total_delay);
@@ -173,7 +187,7 @@ void do_routing(int link, DATAGRAM datagram) {
         if (route_exists(r_packet.dest) == 0) {
             broadcast_packet(r_datagram, link);
         } else {
-            // send to dest directly
+            //send to dest directly
             int dest_link = get_next_link_for_dest(r_packet.dest);
             send_packet_to_link(dest_link, r_datagram);
         }
@@ -232,7 +246,9 @@ void send_route_request(CnetAddr destaddr) {
         req_packet.source = nodeinfo.address;
         req_packet.dest = destaddr;
         req_packet.hop_count = 0;
+        req_packet.total_delay = 0;
         req_packet.req_id = route_req_id;
+        req_packet.min_mtu = -1;
         route_req_id++;
         uint16_t request_size = sizeof(req_packet);
         DATAGRAM r_packet = alloc_datagram(__ROUTING__, nodeinfo.address,
@@ -252,7 +268,7 @@ void send_route_request(CnetAddr destaddr) {
 int get_mtu(CnetAddr address) {
     if (route_exists(address) == 1) {
         int t = find_address(address);
-        return route_table[t].min_mtu;
+        return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE;
     } else {
         send_route_request(address);
         return -1;

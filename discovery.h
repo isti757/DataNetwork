@@ -30,12 +30,12 @@
 //-----------------------------------------------------------------------------
 // discovery message format
 typedef struct {
-  int type;
-  int address;
-  CnetTime timestamp;
+  uint8_t type;
+  uint8_t address;
+  CnetTime delay;
 } __attribute__((packed)) DISCOVERY_PACKET;
 
-#define DISCOVERY_PACKET_SIZE(pkt) (2*sizeof(int)+sizeof(CnetTime))
+#define DISCOVERY_PACKET_SIZE(pkt) (2*sizeof(uint8_t)+sizeof(CnetTime))
 //-----------------------------------------------------------------------------
 extern void init_discovery();
 //-----------------------------------------------------------------------------
