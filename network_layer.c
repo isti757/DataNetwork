@@ -21,6 +21,11 @@ void init_network() {
 	init_discovery();
 }
 //-----------------------------------------------------------------------------
+static unsigned int packets_forwarded_total = 0;
+void histogram() {
+        fprintf(stderr, "\tforwarded: %u\n", packets_forwarded_total);
+}
+//-----------------------------------------------------------------------------
 // read an incoming packet into network layer
 void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet) {
 	N_DEBUG("Call write_network\n");
@@ -60,11 +65,13 @@ void read_network(int link, size_t length, char * datagram) {
 		do_discovery(link, dtg);
 	if (is_kind(dtg.kind,__ROUTING__))
 		do_routing(link, dtg);
-	if (is_kind(dtg.kind,__TRANSPORT__) ) {
+	if (is_kind(dtg.kind,__TRANSPORT__)) {
 		N_DEBUG("received datagram on transport level\n");
 		if (dtg.dest != nodeinfo.address) {
 			N_DEBUG("forwarding..\n");
 			route(dtg);
+            packets_forwarded_total++;
+
 		} else {
 			read_transport(dtg.kind, dtg.length, dtg.src, (char*)dtg.payload);
 		}
@@ -110,6 +117,7 @@ void broadcast_packet(DATAGRAM dtg, int exclude_link) {
 }
 //-----------------------------------------------------------------------------
 void shutdown_network() {
+    histogram();
     shutdown_routing();
     shutdown_datalink();
 }

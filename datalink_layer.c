@@ -95,7 +95,7 @@ void init_datalink() {
 //-----------------------------------------------------------------------------
 void shutdown_datalink() {
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
-        fprintf(stderr, "address: %d link %d - datalink queue: %d packets\n", nodeinfo.address, i, queue_nitems(output_queues[i]));
+        fprintf(stderr, "\tlink %d - datalink queue: %d packets\n", i, queue_nitems(output_queues[i]));
         queue_free(output_queues[i]);
     }
 }

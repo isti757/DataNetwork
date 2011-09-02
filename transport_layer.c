@@ -21,15 +21,16 @@ CnetTimerID flush_queue_timer = NULLTIMER;
 typedef struct sliding_window {
     CnetAddr address;
     CnetTimerID separate_ack_timer;
+    CnetTime adaptive_timeout;
+    CnetTime time_sent;
     //-------------------------------------------------------------------------
     // sliding window variables
     PACKET inpacket[NRBUFS];     // space for assembling incoming packet
     PACKET outpacket[NRBUFS];    // space for storing packets for resending
     uint16_t inlengths[NRBUFS];  // length of incoming packet so far
     uint16_t outlengths[NRBUFS]; // length of outgoing packet
-
-    int arrived[NRBUFS];         //
     CnetTimerID timers[NRBUFS];  //
+    int arrived[NRBUFS];         //
 
     int nextframetosend;
     int ackexpected;
@@ -76,20 +77,26 @@ static int find(CnetAddr address) {
 
     table[table_size].address            = address;
     table[table_size].separate_ack_timer = NULLTIMER;
-    table[table_size].nextframetosend    = 0;
-    table[table_size].ackexpected        = 0;
-    table[table_size].frameexpected      = 0;
-    table[table_size].toofar             = NRBUFS;
-    table[table_size].nbuffered          = 0;
-    table[table_size].lastfullfragment   = -1;
-    table[table_size].nonack             = TRUE;
+    // adaptive timeout
+    table[table_size].time_sent          = 0;
+    table[table_size].adaptive_timeout   = 0;
+
+    // sliding window
+    table[table_size].nextframetosend  = 0;
+    table[table_size].ackexpected      = 0;
+    table[table_size].frameexpected    = 0;
+    table[table_size].toofar           = NRBUFS;
+    table[table_size].nbuffered        = 0;
+    table[table_size].lastfullfragment = -1;
+    table[table_size].nonack           = TRUE;
 
     for (int b = 0; b < NRBUFS; b++) {
+        // sliding window
         table[table_size].arrived[b]    = FALSE;
         table[table_size].timers[b]     = NULLTIMER;
         table[table_size].inlengths[b]  = 0;
         table[table_size].outlengths[b] = 0;
-
+        // fragmentation variables
         table[table_size].allackssarrived[b] = 0;
         table[table_size].numfrags[b]        = 0;
         table[table_size].numacks[b]         = 0;
@@ -158,13 +165,17 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
 
     // if transmitting data, set up a retransmit timer
     if (is_kind(kind, __DATA__)) {
-        uint8_t seqno = packet.seqno;
-        double prop_delay = linkinfo[link].propagationdelay;
-        double bandwidth = linkinfo[link].bandwidth;
-        CnetTime timeout = 30.0 * (prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / bandwidth));
+//        if (packet.segid == 0 && packet.seqno == table[table_ind].ackexpected)
+//            table[table_ind].time_sent = nodeinfo.time_in_usec;
 
-        if(table[table_ind].timers[seqno % NRBUFS] == NULLTIMER)
-            table[table_ind].timers[seqno % NRBUFS] = CNET_start_timer(EV_TIMER1, timeout, ((CnetData)(dest << 8) | seqno));
+        uint8_t seqno = packet.seqno % NRBUFS;
+        if (table[table_ind].adaptive_timeout == 0) {
+            double prop_delay = linkinfo[link].propagationdelay;
+            double bandwidth = linkinfo[link].bandwidth;
+            table[table_ind].adaptive_timeout = 50.0 * (prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / bandwidth));
+        }
+        if (table[table_ind].timers[seqno] == NULLTIMER)
+            table[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, table[table_ind].adaptive_timeout, ((CnetData)(dest << 8) | seqno));
 
         T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", packet.seqno, packet.segid, packet_len-PACKET_HEADER_SIZE);
     }
@@ -277,6 +288,14 @@ void handle_ack(uint16_t length, CnetAddr src, PACKET pkt, int table_ind) {
 
         // we have acked something so enable the application layer
         acked = TRUE;
+
+        // handle adaptive timeout
+//        if(table[table_ind].ackexpected == pkt.ackseqno) {
+//            CnetTime curr_time = nodeinfo.time_in_usec;
+//            CnetTime curr_timeout = table[table_ind].adaptive_timeout;
+//            CnetTime rtt = curr_time-table[table_ind].time_sent;
+//            table[table_ind].adaptive_timeout = LEARNING_RATE*rtt+(1-LEARNING_RATE)*curr_timeout;
+//        }
 
         // reset the variables for the next packet
         --table[table_ind].nbuffered;
@@ -408,7 +427,6 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
     while (table[table_ind].arrived[table[table_ind].frameexpected % NRBUFS]) {
         arrived_frame = TRUE;
         int frameexpected_mod = table[table_ind].frameexpected % NRBUFS;
-
         size_t len = table[table_ind].inlengths[frameexpected_mod];
 
         T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, table[table_ind].frameexpected);
@@ -459,15 +477,16 @@ void read_transport(uint8_t kind, uint16_t length, CnetAddr src, char * packet) 
         if (between(table[table_ind].ackexpected, pkt.ackseqno, table[table_ind].nextframetosend))
             handle_ack(length, src, pkt, table_ind);
     }
+    // TODO: fix NACK checking in between
     if (is_kind(kind, __NACK__))
         if(between(table[table_ind].ackexpected, (pkt.ackseqno+1) % (MAXSEQ+1), table[table_ind].nextframetosend)) {
-            handle_nack(kind, length, src, pkt, table_ind);
+            ;//handle_nack(kind, length, src, pkt, table_ind);
     }
     // receiver side
     if (is_kind(kind, __DATA__)) {
         // if a frame is out of order, possibly a frame loss occured, so send a NACK
         // figure out the previous segment to the one just received and check if it arrived
-        handle_out_of_order_data(length, src, pkt, table_ind);
+        //handle_out_of_order_data(length, src, pkt, table_ind);
 
         T_DEBUG4("i\t\tDATA arrived seq: %d seg: %d bet: %d arr: %d\n", pkt.seqno, pkt.segid,
                between(table[table_ind].frameexpected, pkt.seqno, table[table_ind].toofar),
