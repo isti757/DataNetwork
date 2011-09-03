@@ -16,10 +16,16 @@
 QUEUE fragment_queue;
 // timers
 CnetTimerID flush_queue_timer = NULLTIMER;
+static unsigned int packets_retransmitted_total = 0;
 //-----------------------------------------------------------------------------
 // sliding window definition
 typedef struct sliding_window {
     CnetAddr address;
+    //-------------------------------------------------------------------------
+    QUEUE fragment_queue;
+    CnetTimerID flush_queue_timer;
+    //-------------------------------------------------------------------------
+    // adaptive timeouts
     CnetTimerID separate_ack_timer;
     CnetTime adaptive_timeout;
     CnetTime time_sent;
@@ -62,7 +68,11 @@ static void init_sliding_window() {
     table   = (sliding_window *)malloc(sizeof(sliding_window));
     table_size  = 0;
 }
+//-----------------------------------------------------------------------------
 static void destroy_sliding_window() {
+    for(int i = 0; i < table_size; i++) {
+        queue_free(table[i].fragment_queue);
+    }
     free(table);
 }
 //-----------------------------------------------------------------------------
@@ -75,11 +85,17 @@ static int find(CnetAddr address) {
 
     table = (sliding_window *)realloc((char *)table, (table_size+1)*sizeof(sliding_window));
 
-    table[table_size].address            = address;
+    table[table_size].address = address;
+
+    // queue for waiting packets
+    table[table_size].fragment_queue = queue_new();
+    table[table_size].flush_queue_timer = NULLTIMER;
+
     table[table_size].separate_ack_timer = NULLTIMER;
+
     // adaptive timeout
-    table[table_size].time_sent          = 0;
-    table[table_size].adaptive_timeout   = 0;
+    table[table_size].time_sent        = 0;
+    table[table_size].adaptive_timeout = 0;
 
     // sliding window
     table[table_size].nextframetosend  = 0;
@@ -110,7 +126,7 @@ static int find(CnetAddr address) {
             table[table_size].arrivedfrags[b][f] = FALSE;
     }
 
-    return(table_size++);
+    return (table_size++);
 }
 //-----------------------------------------------------------------------------
 // increment sequence number
@@ -172,7 +188,7 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
         if (table[table_ind].adaptive_timeout == 0) {
             double prop_delay = linkinfo[link].propagationdelay;
             double bandwidth = linkinfo[link].bandwidth;
-            table[table_ind].adaptive_timeout = 50.0 * (prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / bandwidth));
+            table[table_ind].adaptive_timeout = 170.0*(prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+packet_len) / bandwidth));
         }
         if (table[table_ind].timers[seqno] == NULLTIMER)
             table[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, table[table_ind].adaptive_timeout, ((CnetData)(dest << 8) | seqno));
@@ -186,22 +202,26 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
 // takes a pending packet out of the waiting queue, fragments it and transmits
 // fragment by fragment
 void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
-    T_DEBUG1("Flushing transport queue %d\n", queue_nitems(fragment_queue));
-    if(queue_nitems(fragment_queue) > 10)
-        CNET_disable_application(ALLNODES);
+    uint8_t src = (uint8_t) data;
+    int table_ind = find(src);
 
-    if (queue_nitems(fragment_queue) != 0) {
+    table[table_ind].flush_queue_timer = NULLTIMER;
+
+    if (queue_nitems(table[table_ind].fragment_queue) != 0) {
+
+        T_DEBUG1("Flushing queue %d\n", queue_nitems(table[table_ind].fragment_queue));
+
         // make sure that the path and mtu are discovered
         size_t frag_len;
-        FRAGMENT *frg = queue_peek(fragment_queue, &frag_len);
+        FRAGMENT *frg = queue_peek(table[table_ind].fragment_queue, &frag_len);
         // index of sliding window for the destination
         int table_ind = find(frg->dest);
         int mtu = get_mtu(frg->dest);
 
         // if path is discovered and there is space in sliding window
-        if (table[table_ind].nbuffered < NRBUFS && mtu != -1) {
+        if (mtu != -1) {
             // get the first packet in the queue
-            frg = queue_remove(fragment_queue, &frag_len);
+            frg = queue_remove(table[table_ind].fragment_queue, &frag_len);
 
             // copy to a local packet
             size_t total_mess_len = frg->len;
@@ -249,11 +269,13 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
             free(frg);
         }
         CnetTime timeout = 1;
-        flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) -1);
+        table[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) frg->dest);
     }
     // avoid polling
     else
-        flush_queue_timer = NULLTIMER;
+        table[table_ind].flush_queue_timer = NULLTIMER;
+
+    T_DEBUG1("Flushing queue timer %d\n", table[table_ind].flush_queue_timer);
 }
 //-----------------------------------------------------------------------------
 void handle_ack(uint16_t length, CnetAddr src, PACKET pkt, int table_ind) {
@@ -313,7 +335,7 @@ void handle_ack(uint16_t length, CnetAddr src, PACKET pkt, int table_ind) {
 
         table[table_ind].timers[ackexpected_mod] = NULLTIMER;
     }
-    if (acked && queue_nitems(fragment_queue) < 10)
+    if (acked && queue_nitems(table[table_ind].fragment_queue) < 10)
         CNET_enable_application(src);
 }
 //-----------------------------------------------------------------------------
@@ -455,7 +477,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
     // start a separate ack timer
     if(arrived_frame == TRUE) {
         if(table[table_ind].separate_ack_timer != NULLTIMER)
-                       CNET_stop_timer(table[table_ind].separate_ack_timer);
+            CNET_stop_timer(table[table_ind].separate_ack_timer);
         table[table_ind].separate_ack_timer = CNET_start_timer(EV_TIMER3, 100, src);
     }
 }
@@ -516,6 +538,9 @@ void separate_ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 // called for retransmitting the timeouted packet. performs fragmentation
 // of the packet and transmitting unacknowledged fragments
 void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
+
+    packets_retransmitted_total++;
+
     uint8_t seqno = (int) data & UCHAR_MAX;
     uint8_t seqno_mod = seqno % NRBUFS;
 
@@ -582,19 +607,23 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 
     size_t frg_len = FRAGMENT_HEADER_SIZE + PACKET_HEADER_SIZE + frg.len;
 
-    if(flush_queue_timer == NULLTIMER) {
+    int table_ind = find(destaddr);
+    if(queue_nitems(table[table_ind].fragment_queue) == 0) {
         CnetTime timeout = 1;
-        flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) -1);
+        table[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) destaddr);
     }
 
-    queue_add(fragment_queue, &frg, frg_len);
+    T_DEBUG1("i\tWrite transport %d\n", table[table_ind].flush_queue_timer);
+
+
+    queue_add(table[table_ind].fragment_queue, &frg, frg_len);
 }
 //-----------------------------------------------------------------------------
 // clean all allocated memory
 static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
-    fprintf(stderr, "address: %d - transport queue: %d packets\n", nodeinfo.address, queue_nitems(fragment_queue));
+    fprintf(stderr, "address: %d\n", nodeinfo.address);
+    fprintf(stderr, "\tretransmitted: %d\n", packets_retransmitted_total);
     destroy_sliding_window();
-    queue_free(fragment_queue);
 	shutdown_network();
 }
 //-----------------------------------------------------------------------------
@@ -606,9 +635,6 @@ void init_transport() {
 	CHECK(CNET_set_handler( EV_TIMER3, separate_ack_timeout, 0));
 	CHECK(CNET_set_handler( EV_SHUTDOWN, shutdown, 0));
 	CHECK(CNET_set_handler( EV_APPLICATIONREADY, write_transport, 0));
-
-	fragment_queue = queue_new();
-	flush_queue_timer = NULLTIMER;
 }
 //-----------------------------------------------------------------------------
 void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
