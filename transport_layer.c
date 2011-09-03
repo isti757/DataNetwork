@@ -263,11 +263,12 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
             free(frg);
         }
-        CnetTime timeout = 1;
-        table[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) frg->dest);
-    }
-    // avoid polling
-    else
+        if (queue_nitems(table[table_ind].fragment_queue) != 0) {
+            CnetTime timeout = 1;
+            table[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) frg->dest);
+        } else
+            table[table_ind].flush_queue_timer = NULLTIMER;
+    } else
         table[table_ind].flush_queue_timer = NULLTIMER;
 
     T_DEBUG1("Flushing queue timer %d\n", table[table_ind].flush_queue_timer);
