@@ -5,14 +5,14 @@ compile = "milestone3.c"
 #include "saarland.map"
 #include "linktypes.txt"
 
-messagerate = 100ms
+messagerate = 500ms
 
 host SB {
 	x = 45388, y = 44424
 	address = 134
 	messagerate = 1ms
 	
-	wan to HOM { LINK_GOOD(1, 3450) }
+	wan to HOM { LINK_LOW_MTU(1, 3450) }
 	wan to SLS { LINK_GOOD(10, 2622) }
 }
 
@@ -20,8 +20,7 @@ host HOM {
 	x = 68544, y = 35424
 	address = 96
 
-	wan to SB { LINK_GOOD(1, 3450) }
-	wan to WND {LINK_GOOD(1, 3450)}
+	wan to SB { LINK_LOW_MTU(1, 3450) }
 }
 
 host SLS {
@@ -29,11 +28,4 @@ host SLS {
 	address = 182
 
 	wan to SB { LINK_GOOD(10, 2622) }
-}
-
-host WND {
-	x = 57024, y = 19080
-	address = 160
-	wan to HOM {LINK_GOOD(1, 3450)}
-	
 }

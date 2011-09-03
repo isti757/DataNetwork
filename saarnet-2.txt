@@ -12,7 +12,7 @@ host SB {
 	address = 134
 	messagerate = 1ms
 	//maxmessagesize = 500bytes
-	wan to HOM { LINK_GOOD(1, 3450) }
+	wan to HOM { LINK_LOW_MTU(1, 3450) }
 }
 
 host HOM {
@@ -20,5 +20,5 @@ host HOM {
 	address = 96
 	messagerate = 500ms
 	//maxmessagesize = 500bytes
-	wan to SB {  LINK_GOOD(1, 3450) }
+	wan to SB {  LINK_LOW_MTU(1, 3450) }
 }

@@ -14,6 +14,8 @@
 #include "debug.h"
 #include "network_layer.h"
 
+int frames_ignored = 0;
+int frames_ignored_by_payload = 0;
 //-----------------------------------------------------------------------------
 //initialize the network table
 void init_network() {
@@ -24,6 +26,8 @@ void init_network() {
 static unsigned int packets_forwarded_total = 0;
 void histogram() {
         fprintf(stderr, "\tforwarded: %u\n", packets_forwarded_total);
+        fprintf(stderr, "\tframes ignored: %u\n", frames_ignored);
+        fprintf(stderr, "\tframes ignored by payload: %u\n", frames_ignored_by_payload);
 }
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
@@ -35,28 +39,35 @@ void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet)
 	dtg.dest = address;
     dtg.kind = kind | __TRANSPORT__;
 	dtg.length = length;
-
 	size_t packet_length = length;
+	//copy the payload
 	memcpy(&(dtg.payload), packet, packet_length);
-
+	//route
 	route(dtg);
-	//N_DEBUG1("Size of the queue=%d\n", queue_nitems(datagram_queue));
 }
 //-----------------------------------------------------------------------------
 // write an incoming message from datalink to network layer
 void read_network(int link, size_t length, char * datagram) {
 	DATAGRAM dtg;
 	memcpy(&dtg, datagram, length);
-	N_DEBUG1("Received checksum=%d\n", dtg.checksum);
 	// TODO: fix checksums
-	uint16_t checksum = dtg.checksum;
+	uint32_t checksum = dtg.checksum;
 	dtg.checksum = 0;
-	size_t len = DATAGRAM_SIZE(dtg);
-	uint16_t checksum_to_compare = CNET_ccitt((unsigned char *) &dtg, len);
+	uint32_t checksum_to_compare = CNET_crc32((unsigned char *)&dtg, length);
 	if (checksum_to_compare != checksum) {
 	    N_DEBUG("BAD checksum - ignored\n");
+	    frames_ignored++;
 		return; // bad checksum, ignore frame
 	}
+	size_t packet_length = dtg.length;
+	//check payload checksum
+	uint32_t payload_checksum_to_compare = CNET_crc32((unsigned char *)&(dtg.payload), packet_length);
+	if (payload_checksum_to_compare != dtg.payload_checksum) {
+		N_DEBUG("BAD payload checksum - ignored\n");
+		frames_ignored_by_payload++;
+		return; // bad checksum, ignore frame
+	}
+
 	N_DEBUG1("Dispatching %d...\n",dtg.kind);
 
 	//Dispatch the datagram
@@ -99,9 +110,9 @@ void send_packet(CnetAddr addr, DATAGRAM datagram) {
 // send a packet to the link
 void send_packet_to_link(int link, DATAGRAM datagram) {
 	size_t size = DATAGRAM_SIZE(datagram);
+	datagram.payload_checksum = CNET_crc32((unsigned char *)&(datagram.payload), datagram.length);
 	datagram.checksum = 0;
-	datagram.checksum = CNET_ccitt((unsigned char *) &datagram, size);
-
+	datagram.checksum = CNET_crc32((unsigned char *) &datagram, size);
 	// send packet down to link layer
 	write_datalink(link, (char *) &datagram, size);
 }

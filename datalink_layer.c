@@ -69,6 +69,11 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         int link = dtg_container->link;
         size_t datagram_length = dtg_container->len;
         memcpy(&frame.data, dtg_container->data, datagram_length);
+        /*if (linkinfo[link].mtu < datagram_length) {
+        	DATAGRAM dtg;
+        	memcpy(&dtg,&frame.data,datagram_length);
+        	fprintf(stderr, "Node:%d, mtu:%d, datagram to:%d, from: %d, decl.mtu:%d,length: %d\n", nodeinfo.address,linkinfo[link].mtu,dtg.dest,dtg.src,dtg.declared_mtu,datagram_length);
+        }*/
         CHECK(CNET_write_physical(link, (char *)&frame, &datagram_length));
 
         //compute timeout for the link
