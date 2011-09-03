@@ -24,19 +24,19 @@ typedef struct sliding_window {
     //-------------------------------------------------------------------------
     QUEUE fragment_queue;
     CnetTimerID flush_queue_timer;
+    CnetTimerID separate_ack_timer;
     //-------------------------------------------------------------------------
     // adaptive timeouts
-    CnetTimerID separate_ack_timer;
     CnetTime adaptive_timeout;
-    CnetTime time_sent;
+    CnetTime timesent[NRBUFS][MAXFR];
     //-------------------------------------------------------------------------
     // sliding window variables
     PACKET inpacket[NRBUFS];     // space for assembling incoming packet
     PACKET outpacket[NRBUFS];    // space for storing packets for resending
     uint16_t inlengths[NRBUFS];  // length of incoming packet so far
     uint16_t outlengths[NRBUFS]; // length of outgoing packet
-    CnetTimerID timers[NRBUFS];  //
-    int arrived[NRBUFS];         //
+    CnetTimerID timers[NRBUFS];  // retransmit timeout
+    int arrived[NRBUFS];         // marks if entire packet arrived
 
     int nextframetosend;
     int ackexpected;
@@ -94,7 +94,6 @@ static int find(CnetAddr address) {
     table[table_size].separate_ack_timer = NULLTIMER;
 
     // adaptive timeout
-    table[table_size].time_sent        = 0;
     table[table_size].adaptive_timeout = 0;
 
     // sliding window
@@ -119,11 +118,11 @@ static int find(CnetAddr address) {
         table[table_size].mtusize[b]         = 0;
         table[table_size].lastfrag[b]        = -1;
 
-        for (int f = 0; f < MAXFR; f++)
+        for (int f = 0; f < MAXFR; f++) {
+            table[table_size].timesent[b][f] = -1;
             table[table_size].arrivedacks[b][f] = FALSE;
-
-        for (int f = 0; f < MAXFR; f++)
             table[table_size].arrivedfrags[b][f] = FALSE;
+        }
     }
 
     return (table_size++);
@@ -181,10 +180,9 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
 
     // if transmitting data, set up a retransmit timer
     if (is_kind(kind, __DATA__)) {
-//        if (packet.segid == 0 && packet.seqno == table[table_ind].ackexpected)
-//            table[table_ind].time_sent = nodeinfo.time_in_usec;
-
         uint8_t seqno = packet.seqno % NRBUFS;
+        table[table_ind].timesent[seqno][packet.segid] = nodeinfo.time_in_usec;
+
         if (table[table_ind].adaptive_timeout == 0) {
             double prop_delay = linkinfo[link].propagationdelay;
             double bandwidth = linkinfo[link].bandwidth;
@@ -204,7 +202,6 @@ void transmit_packet(uint8_t kind, uint8_t dest, uint16_t packet_len, PACKET pac
 void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
     uint8_t src = (uint8_t) data;
     int table_ind = find(src);
-
     table[table_ind].flush_queue_timer = NULLTIMER;
 
     if (queue_nitems(table[table_ind].fragment_queue) != 0) {
@@ -226,8 +223,6 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
             // copy to a local packet
             size_t total_mess_len = frg->len;
             int nf = table[table_ind].nextframetosend % NRBUFS;
-            if (++table[table_ind].nbuffered == NRBUFS)
-                CNET_disable_application(frg->dest);
 
             // copy first packet to the sliding window
             table[table_ind].outlengths[nf] = frg->len;
@@ -279,6 +274,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 }
 //-----------------------------------------------------------------------------
 void handle_ack(uint16_t length, CnetAddr src, PACKET pkt, int table_ind) {
+
     T_DEBUG2("a\t\tACK arrived seq: %d seg: %d\n", pkt.ackseqno, pkt.acksegid);
 
     int acked = FALSE;
@@ -291,14 +287,29 @@ void handle_ack(uint16_t length, CnetAddr src, PACKET pkt, int table_ind) {
         int ackexpected_mod = table[table_ind].ackexpected % NRBUFS;
 
         // check that all of the fragments are acknowledged
+        CnetTime measured, observed;
         if (table[table_ind].ackexpected != pkt.ackseqno) {
             for (int i = 0; i < table[table_ind].numacks[ackexpected_mod]; i++) {
+                // handle adaptive timeout
+                if(table[table_ind].arrivedacks[ackexpected_mod][i] == FALSE) {
+                    measured = table[table_ind].adaptive_timeout;
+                    observed = 2*(nodeinfo.time_in_usec-table[table_ind].timesent[ackexpected_mod][i]);
+//                    table[table_ind].adaptive_timeout = (1.0-LEARNING_RATE)*measured+LEARNING_RATE*observed;
+                    table[table_ind].timesent[ackexpected_mod][i] = -1;
+                }
                 table[table_ind].arrivedacks[ackexpected_mod][i] = TRUE;
             }
             table[table_ind].allackssarrived[ackexpected_mod] = TRUE;
         } else {
             for (int i = 0; i <= pkt.acksegid; i++) {
-                table[table_ind].arrivedacks[pktackseqno][i] = TRUE;
+                // handle adaptive timeout
+                if(table[table_ind].arrivedacks[ackexpected_mod][i] == FALSE) {
+                    measured = table[table_ind].adaptive_timeout;
+                    observed = 2*(nodeinfo.time_in_usec-table[table_ind].timesent[ackexpected_mod][i]);
+//                    table[table_ind].adaptive_timeout = (1.0-LEARNING_RATE)*measured+LEARNING_RATE*observed;
+                    table[table_ind].timesent[ackexpected_mod][i] = -1;
+                }
+                table[table_ind].arrivedacks[ackexpected_mod][i] = TRUE;
             }
             table[table_ind].allackssarrived[pktackseqno] =
                     table[table_ind].arrivedacks[pktackseqno][table[table_ind].numacks[pktackseqno]-1];
@@ -311,19 +322,13 @@ void handle_ack(uint16_t length, CnetAddr src, PACKET pkt, int table_ind) {
         // we have acked something so enable the application layer
         acked = TRUE;
 
-        // handle adaptive timeout
-//        if(table[table_ind].ackexpected == pkt.ackseqno) {
-//            CnetTime curr_time = nodeinfo.time_in_usec;
-//            CnetTime curr_timeout = table[table_ind].adaptive_timeout;
-//            CnetTime rtt = curr_time-table[table_ind].time_sent;
-//            table[table_ind].adaptive_timeout = LEARNING_RATE*rtt+(1-LEARNING_RATE)*curr_timeout;
-//        }
-
         // reset the variables for the next packet
         --table[table_ind].nbuffered;
 
-        for (int i = 0; i < table[table_ind].numacks[ackexpected_mod]; i++)
+        for (int i = 0; i < table[table_ind].numacks[ackexpected_mod]; i++) {
             table[table_ind].arrivedacks[ackexpected_mod][i] = FALSE;
+            table[table_ind].timesent[ackexpected_mod][i] = -1;
+        }
 
         table[table_ind].numacks[ackexpected_mod] = 0;
         table[table_ind].allackssarrived[ackexpected_mod] = FALSE;
@@ -608,6 +613,9 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
     size_t frg_len = FRAGMENT_HEADER_SIZE + PACKET_HEADER_SIZE + frg.len;
 
     int table_ind = find(destaddr);
+    if (++table[table_ind].nbuffered == NRBUFS)
+        CNET_disable_application(destaddr);
+
     if(queue_nitems(table[table_ind].fragment_queue) == 0) {
         CnetTime timeout = 1;
         table[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) destaddr);
