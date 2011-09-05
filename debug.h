@@ -9,6 +9,7 @@
 #define DEBUG_H_
 
 #define TRANSPORT_LAYER_DEBUG
+#define NETWORK_LAYER_DEBUG
 
 #ifdef TRANSPORT_LAYER_DEBUG
 #   define T_DEBUG(msg) printf(msg)

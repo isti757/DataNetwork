@@ -15,7 +15,6 @@
 #include "network_layer.h"
 
 int frames_ignored = 0;
-int frames_ignored_by_payload = 0;
 //-----------------------------------------------------------------------------
 //initialize the network table
 void init_network() {
@@ -27,8 +26,8 @@ static unsigned int packets_forwarded_total = 0;
 void histogram() {
         fprintf(stderr, "\tforwarded: %u\n", packets_forwarded_total);
         fprintf(stderr, "\tframes ignored: %u\n", frames_ignored);
-        fprintf(stderr, "\tframes ignored by payload: %u\n", frames_ignored_by_payload);
 }
+
 //-----------------------------------------------------------------------------
 // read an incoming packet into network layer
 void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet) {
@@ -59,14 +58,14 @@ void read_network(int link, size_t length, char * datagram) {
 	    frames_ignored++;
 		return; // bad checksum, ignore frame
 	}
-	size_t packet_length = dtg.length;
+	/*size_t packet_length = dtg.length;
 	//check payload checksum
 	uint32_t payload_checksum_to_compare = CNET_crc32((unsigned char *)&(dtg.payload), packet_length);
 	if (payload_checksum_to_compare != dtg.payload_checksum) {
 		N_DEBUG("BAD payload checksum - ignored\n");
 		frames_ignored_by_payload++;
 		return; // bad checksum, ignore frame
-	}
+	}*/
 
 	N_DEBUG1("Dispatching %d...\n",dtg.kind);
 
@@ -110,7 +109,7 @@ void send_packet(CnetAddr addr, DATAGRAM datagram) {
 // send a packet to the link
 void send_packet_to_link(int link, DATAGRAM datagram) {
 	size_t size = DATAGRAM_SIZE(datagram);
-	datagram.payload_checksum = CNET_crc32((unsigned char *)&(datagram.payload), datagram.length);
+	//datagram.payload_checksum = CNET_crc32((unsigned char *)&(datagram.payload), datagram.length);
 	datagram.checksum = 0;
 	datagram.checksum = CNET_crc32((unsigned char *) &datagram, size);
 	// send packet down to link layer

@@ -59,7 +59,7 @@ static int whichlink(CnetAddr address) {
 //-----------------------------------------------------------------------------
 // learn routing table TODO what about best route?
 void learn_route_table(CnetAddr address, int hops, int link, int mtu, CnetTime total_delay) {
-    int t = find_address(address);
+	int t = find_address(address);
     //if(route_table[t].minhops >= hops) {
     route_table[t].minhops = hops;
     route_table[t].minhop_link = link;
@@ -133,17 +133,30 @@ void do_routing(int link, DATAGRAM datagram) {
 
     switch (r_packet.type) {
     case RREQ:
+    	/*if (r_packet.source == 96) {
+    	        	fprintf(stderr,"Recieved RREQ from %d for %d on %d, linkmtu=%d, src=%d, dest=%d mtu=%d link_id=%d\n",
+    	        			r_packet.source,r_packet.dest,nodeinfo.address,linkinfo[link].mtu,r_packet.source,r_packet.dest,r_packet.min_mtu,link);
+    	        			//fprintf(stderr, "Learning 96 in RREQ route_exist=%d\n", route_exists(
+    	        			//			r_packet.source));
+    	        for (int i=1;i<=nodeinfo.nlinks;i++) {
+    	        	fprintf(stderr,"Link %d mtu=%d\n",i,linkinfo[i].mtu);
+    	        }
+
+    	        }*/
+
         N_DEBUG2("Received rreq on %d link=%d\n", nodeinfo.address, link);
         N_DEBUG1("hop count = %d\n", r_packet.hop_count);
         // check local history if we already processed this RREQ
         if (find_local_history(r_packet.source, r_packet.req_id) != -1) {
+        	//fprintf(stderr,"Ignored by local history on %d src=%d dest=%d\n",nodeinfo.address,r_packet.source,r_packet.dest);
             break;
         }
         N_DEBUG("no entry in local history\n");
         // insert into local history table
         insert_local_history(r_packet.source, r_packet.req_id);
+
         //set up mtu
-        if (r_packet.min_mtu==-1) {
+        if (r_packet.min_mtu==0) {
         	r_packet.min_mtu = linkinfo[link].mtu;
         } else {
         	//if this link mtu is less then set up the new mtu
@@ -153,13 +166,14 @@ void do_routing(int link, DATAGRAM datagram) {
         }
         //set up the total delay
         r_packet.total_delay += linkinfo[link].propagationdelay;
-        N_DEBUG1("Total delay=%d\n",r_packet.total_delay);
 
         //check if the route exists and learn the table
-        if (route_exists(r_packet.source) == 0) {
-            learn_route_table(r_packet.source, r_packet.hop_count, link,
+        if (r_packet.min_mtu > get_mtu(r_packet.source)) {
+        	learn_route_table(r_packet.source, r_packet.hop_count, link,
                     r_packet.min_mtu, r_packet.total_delay);
         }
+
+
         if (nodeinfo.address == r_packet.dest) {
             // create RREP
             N_DEBUG2("Sending RREP from %d to link %d\n", nodeinfo.address, link);
@@ -176,10 +190,10 @@ void do_routing(int link, DATAGRAM datagram) {
             send_packet_to_link(link, reply_datagram);
             break;
         }
-        // the receiver doesn't know
+        // the current node is not a reciever
         // increment hop count
         r_packet.hop_count = r_packet.hop_count + 1;
-        // rebroadcast the message
+
         uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
         DATAGRAM r_datagram = alloc_datagram(__ROUTING__, r_packet.source, r_packet.dest, (char*) &r_packet, request_size);
 
@@ -196,6 +210,15 @@ void do_routing(int link, DATAGRAM datagram) {
         N_DEBUG2("Received rrep on %d link=%d\n", nodeinfo.address, link);
         N_DEBUG1("hop count = %d\n", r_packet.hop_count);
         r_packet.hop_count = r_packet.hop_count + 1;
+        /*if (nodeinfo.address == 182) {
+			if (r_packet.dest == 96) {
+				fprintf(stderr, "Learning 96 route_exist=%d\n", route_exists(
+						r_packet.dest));
+				if (route_exists(r_packet.dest)) {
+					fprintf(stderr,"mtu=%d\n",get_mtu(r_packet.dest));
+				}
+			}
+		}*/
         if (route_exists(r_packet.dest) == 0) {
             learn_route_table(r_packet.dest, r_packet.hop_count, link,
                               r_packet.min_mtu, r_packet.total_delay); //TODO usec!
@@ -248,7 +271,7 @@ void send_route_request(CnetAddr destaddr) {
         req_packet.hop_count = 0;
         req_packet.total_delay = 0;
         req_packet.req_id = route_req_id;
-        req_packet.min_mtu = -1;
+        req_packet.min_mtu = 0;
         route_req_id++;
         uint16_t request_size = sizeof(req_packet);
         DATAGRAM r_packet = alloc_datagram(__ROUTING__, nodeinfo.address,
@@ -260,6 +283,8 @@ void send_route_request(CnetAddr destaddr) {
         // start timer for pending route request
         pending_route_requests[destaddr] = CNET_start_timer(
                 EV_ROUTE_PENDING_TIMER, ROUTE_REQUEST_TIMEOUT, destaddr);
+        // insert into local history table
+        insert_local_history(req_packet.source, req_packet.req_id);
         broadcast_packet(r_packet, -1);
     }
 }
