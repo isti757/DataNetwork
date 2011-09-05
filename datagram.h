@@ -16,7 +16,8 @@
 // types of signal exchange data
 typedef enum {
         CONGESTION = 1,
-        DISCOVERY_FINISHED = 2
+        DISCOVERY_FINISHED = 2,
+        MTU_DISCOVERED = 3
 } SIGNALKIND;
 typedef	CnetData SIGNALDATA;
 //-----------------------------------------------------------------------------

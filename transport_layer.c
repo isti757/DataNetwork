@@ -222,10 +222,11 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         // make sure that the path and mtu are discovered
         int mtu = get_mtu(frg->dest);
         if(mtu == -1) {
-            CNET_disable_application(src);
-            swin[table_ind].flush_queue_timer = NULLTIMER;
-            return;
+             CNET_disable_application(src);
+             table[table_ind].flush_queue_timer = NULLTIMER;
+             return;
         }
+        // if path is discovered and there is space in sliding window
         if (mtu != -1) {
             // get the first packet in the queue
             frg = queue_remove(swin[table_ind].fragment_queue, &frag_len);
@@ -662,6 +663,16 @@ void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
         T_DEBUG("Discovery finished\n");
         CNET_enable_application(ALLNODES);
     }
+	if (sg == MTU_DISCOVERED) {
+		//fprintf(stderr, "Enabling...\n");
+		uint8_t address = (uint8_t)data;
+		//fprintf(stderr, "MTU discovered for %d on %d\n",address,nodeinfo.address);
+		CnetTime timeout = 1;
+		int t = find(address);
+		table[t].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) address);
+		CNET_enable_application(address);
+		//fprintf(stderr, "Enabled\n");
+	}
 }
 //-----------------------------------------------------------------------------
 
