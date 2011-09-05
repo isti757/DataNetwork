@@ -17,6 +17,8 @@ static uint64_t observed_packets = 0;
 static CnetTime average_observed = 0;
 static CnetTime average_measured = 0;
 static unsigned int packets_retransmitted_total = 0;
+static unsigned int separate_ack = 0;
+static unsigned int sent_messages = 0;
 //-----------------------------------------------------------------------------
 // queue containing packets waiting dispatch
 QUEUE fragment_queue;
@@ -31,6 +33,7 @@ typedef struct sliding_window {
     QUEUE fragment_queue;
     CnetTimerID flush_queue_timer;
     CnetTimerID separate_ack_timer;
+    int retransmitted[NRBUFS];
     // adaptive timeouts
     CnetTime adaptive_timeout;
     CnetTime timesent[NRBUFS][MAXFR];
@@ -106,6 +109,8 @@ static int find_swin(CnetAddr address) {
     swin[swin_size].lastfullfragment = -1;
 
     for (int b = 0; b < NRBUFS; b++) {
+        // adaptive timeout management
+        swin[swin_size].retransmitted[b] = FALSE;
         // sliding window
         swin[swin_size].arrived[b]    = FALSE;
         swin[swin_size].timers[b]     = NULLTIMER;
@@ -148,7 +153,6 @@ static int between(int a, int b, int c) {
 //-----------------------------------------------------------------------------
 static void adapt_timeout(uint8_t dst, uint16_t pkt_len, int table_ind, PACKET pkt) {
     uint8_t seqno = pkt.seqno % NRBUFS;
-    swin[table_ind].timesent[seqno][pkt.segid] = nodeinfo.time_in_usec;
 
     // figure out where to send
     int link = get_next_link_for_dest(dst);
@@ -160,8 +164,10 @@ static void adapt_timeout(uint8_t dst, uint16_t pkt_len, int table_ind, PACKET p
     }
     if (swin[table_ind].timers[seqno] == NULLTIMER) {
         CnetData data = (dst << 8) | seqno;
-        swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, 2*swin[table_ind].adaptive_timeout, data);
+        swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, swin[table_ind].adaptive_timeout, data);
     }
+
+    assert(swin[table_ind].adaptive_timeout > 0);
 }
 //-----------------------------------------------------------------------------
 // gives a packet to the network layer setting the piggybacked acknowledgement
@@ -209,8 +215,8 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
 // takes a pending packet out of the waiting queue, fragments it and transmits
 // fragment by fragment
 void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
-    uint8_t src = (uint8_t) data;
-    int table_ind = find_swin(src);
+    uint8_t dest = (uint8_t) data;
+    int table_ind = find_swin(dest);
     swin[table_ind].flush_queue_timer = NULLTIMER;
 
     assert(queue_nitems(swin[table_ind].fragment_queue) != 0);
@@ -221,13 +227,15 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
         // make sure that the path and mtu are discovered
         int mtu = get_mtu(frg->dest);
-        if(mtu == -1) {
-             CNET_disable_application(src);
-             table[table_ind].flush_queue_timer = NULLTIMER;
-             return;
-        }
+//        if(mtu == -1) {
+//             CNET_disable_application(dest);
+//             swin[table_ind].flush_queue_timer = NULLTIMER;
+//             return;
+//        }
         // if path is discovered and there is space in sliding window
         if (mtu != -1) {
+            sent_messages++;
+
             // get the first packet in the queue
             frg = queue_remove(swin[table_ind].fragment_queue, &frag_len);
 
@@ -265,6 +273,9 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
                 frg_seg.seqno = swin[table_ind].nextframetosend;
                 frg_seg.segid = segid;
 
+                // timestamp of a fragment
+                swin[table_ind].timesent[frg_seg.seqno % NRBUFS][frg_seg.segid] = nodeinfo.time_in_usec;
+
                 frg_seg_len_t += PACKET_HEADER_SIZE;
                 transmit_packet(kind, frg->dest, frg_seg_len_t, frg_seg);
 
@@ -278,8 +289,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
             free(frg);
         }
         if (queue_nitems(swin[table_ind].fragment_queue) != 0) {
-            CnetTime timeout = 1;
-            swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, src);
+            swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, dest);
         } else
             swin[table_ind].flush_queue_timer = NULLTIMER;
     } else
@@ -300,12 +310,15 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         if (swin[table_ind].ackexpected != pkt.ackseqno) {
             // handle adaptive timeout
             for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
-                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE) {
+                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE && swin[table_ind].retransmitted[ack_mod] == FALSE) {
                     observed_packets++;
                     average_measured += swin[table_ind].adaptive_timeout;
                     average_observed += nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
+
+                    assert(observed > 0);
+                    assert(measured > 0);
                     swin[table_ind].adaptive_timeout = LEARNING_RATE*observed+(1-LEARNING_RATE)*measured;
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
@@ -314,12 +327,15 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
             swin[table_ind].allackssarrived[ack_mod] = TRUE;
         } else {
             for (int i = 0; i <= pkt.acksegid; i++) {
-                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE) {
+                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE && swin[table_ind].retransmitted[ack_mod] == FALSE) {
                     observed_packets++;
                     average_measured += swin[table_ind].adaptive_timeout;
                     average_observed += nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
+
+                    assert(observed > 0);
+                    assert(measured > 0);
                     swin[table_ind].adaptive_timeout = LEARNING_RATE*observed+(1-LEARNING_RATE)*measured;
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
@@ -338,6 +354,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
 
         // reset the variables for the next packet
         --swin[table_ind].nbuffered;
+        swin[table_ind].retransmitted[ack_mod] = FALSE;
         for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
             swin[table_ind].arrivedacks[ack_mod][i] = FALSE;
             swin[table_ind].timesent[ack_mod][i] = -1;
@@ -544,6 +561,8 @@ void read_transport(uint8_t kind, uint16_t length, CnetAddr src, char * packet) 
 void separate_ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     uint8_t src = (uint8_t) data;
 
+    separate_ack++;
+
     int table_ind = find_swin(src);
     swin[table_ind].separate_ack_timer = NULLTIMER;
 
@@ -554,7 +573,6 @@ void separate_ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 // called for retransmitting the timeouted packet. performs fragmentation
 // of the packet and transmitting unacknowledged fragments
 void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
-
     packets_retransmitted_total++;
 
     uint8_t seqno = (int) data & UCHAR_MAX;
@@ -568,6 +586,7 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
     // Karn's algorithm
     swin[table_ind].adaptive_timeout *= 2;
+    swin[table_ind].retransmitted[seqno] = TRUE;
 
     // find out where to send and how to fragment
     int mtu = get_mtu(swin[table_ind].address);
@@ -630,6 +649,8 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
     if (++swin[table_ind].nbuffered == NRBUFS)
         CNET_disable_application(destaddr);
 
+    assert(swin[table_ind].nbuffered <= NRBUFS);
+
     if(queue_nitems(swin[table_ind].fragment_queue) == 0) {
         CnetTime timeout = 1;
         swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) destaddr);
@@ -641,8 +662,10 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 // clean all allocated memory
 static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
     fprintf(stderr, "address: %d\n", nodeinfo.address);
-    fprintf(stderr, "\tmeasured timer: %d\n", (int)(average_measured / (double) observed_packets));
-    fprintf(stderr, "\tobserved timer: %d\n", (int)(average_observed / (double) observed_packets));
+    fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
+    fprintf(stderr, "\tseparate ack: %d\n", separate_ack);
+    fprintf(stderr, "\tmeasured timer: %d\n", (int)((double)average_measured / (double) observed_packets));
+    fprintf(stderr, "\tobserved timer: %d\n", (int)((double)average_observed / (double) observed_packets));
     fprintf(stderr, "\tretransmitted: %d\n", packets_retransmitted_total);
     destroy_sliding_window();
     shutdown_network();
@@ -663,16 +686,12 @@ void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
         T_DEBUG("Discovery finished\n");
         CNET_enable_application(ALLNODES);
     }
-	if (sg == MTU_DISCOVERED) {
-		//fprintf(stderr, "Enabling...\n");
-		uint8_t address = (uint8_t)data;
-		//fprintf(stderr, "MTU discovered for %d on %d\n",address,nodeinfo.address);
-		CnetTime timeout = 1;
-		int t = find(address);
-		table[t].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) address);
-		CNET_enable_application(address);
-		//fprintf(stderr, "Enabled\n");
-	}
+    if (sg == MTU_DISCOVERED) {
+//        uint8_t address = (uint8_t)data;
+//        int table_ind = find_swin(address);
+//        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
+//        CNET_enable_application(address);
+    }
 }
 //-----------------------------------------------------------------------------
 

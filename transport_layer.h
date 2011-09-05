@@ -28,7 +28,7 @@
 //-----------------------------------------------------------------------------
 // adaptive timeouts
 #define LEARNING_RATE 0.8
-#define SLOWDIWN_RATE 1.2
+#define SLOWDOWN_RATE 1.2
 //-----------------------------------------------------------------------------
 // initialize transport layer
 extern void init_transport();
