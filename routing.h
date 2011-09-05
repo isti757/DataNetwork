@@ -13,7 +13,7 @@
 //-----------------------------------------------------------------------------
 #define EV_ROUTE_PENDING_TIMER  EV_TIMER7
 // timeout for waiting route response
-#define ROUTE_REQUEST_TIMEOUT 1000000
+#define ROUTE_REQUEST_TIMEOUT 1000000 //TODO?
 // the maximum number of hosts
 #define MAX_HOSTS_NUMBER 256
 //-----------------------------------------------------------------------------
@@ -36,7 +36,7 @@ typedef struct {
 	int req_id;
 } __attribute__((packed)) HISTORY_TABLE;
 //-----------------------------------------------------------------------------
-//A route request packet //TODO размер?
+//A route request packet
 typedef struct {
 	uint8_t type;
 	uint8_t source;
@@ -44,10 +44,11 @@ typedef struct {
 	uint16_t hop_count;//TODO is it correct size?
 	uint16_t req_id; //a local counter maintained separately by each node and incremented each time a ROUTE REQUEST is broadcast
 	uint16_t min_mtu;//a minimum MTU value on the way to destination
+	uint8_t time_to_live;
 	CnetTime total_delay;//a total propagation delay on the way to destination
 } __attribute__((packed)) ROUTE_PACKET;
 
-#define ROUTE_PACKET_SIZE(pkt) (4*sizeof(int)+2*sizeof(uint8_t)+sizeof(CnetTime))
+#define ROUTE_PACKET_SIZE(pkt) (3*sizeof(uint16_t)+4*sizeof(uint8_t)+sizeof(CnetTime))
 //-----------------------------------------------------------------------------
 // initialize the routing
 extern void init_routing();
@@ -59,7 +60,7 @@ extern void route(DATAGRAM);
 extern int route_exists(CnetAddr address);
 //-----------------------------------------------------------------------------
 //send a route request to find address
-extern void send_route_request(CnetAddr address);
+extern void send_route_request(CnetAddr address, int time_to_live);
 //-----------------------------------------------------------------------------
 //process a routing packet
 extern void do_routing(int link,DATAGRAM datagram);

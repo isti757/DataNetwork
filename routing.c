@@ -22,6 +22,8 @@ static int route_req_id;
 //-----------------------------------------------------------------------------
 // an array of pending route requests
 CnetTimerID pending_route_requests[MAX_HOSTS_NUMBER];
+//an array of the pending route requests ttl
+uint8_t pending_route_request_ttl[MAX_HOSTS_NUMBER];
 //-----------------------------------------------------------------------------
 // find the address in the routing table
 static int find_address(CnetAddr address) {
@@ -193,18 +195,24 @@ void do_routing(int link, DATAGRAM datagram) {
         // the current node is not a reciever
         // increment hop count
         r_packet.hop_count = r_packet.hop_count + 1;
-
-        uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
-        DATAGRAM r_datagram = alloc_datagram(__ROUTING__, r_packet.source, r_packet.dest, (char*) &r_packet, request_size);
-
-        // broadcast if no route is known
-        if (route_exists(r_packet.dest) == 0) {
-            broadcast_packet(r_datagram, link);
-        } else {
-            //send to dest directly
-            int dest_link = get_next_link_for_dest(r_packet.dest);
-            send_packet_to_link(dest_link, r_datagram);
-        }
+        //decrement time to live
+        r_packet.time_to_live = r_packet.time_to_live-1;
+        //check time to live
+        //if (r_packet.time_to_live >= 0) {
+			uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
+			DATAGRAM r_datagram = alloc_datagram(__ROUTING__, r_packet.source,
+					r_packet.dest, (char*) &r_packet, request_size);
+			// broadcast if no route is known
+			if (route_exists(r_packet.dest) == 0) {
+				broadcast_packet(r_datagram, link);
+			} else {
+				//send to dest directly
+				int dest_link = get_next_link_for_dest(r_packet.dest);
+				send_packet_to_link(dest_link, r_datagram);
+			}
+		//} else {
+		//	fprintf(stderr,"Dropped by ttl on %d src=%d dest=%d\n", nodeinfo.address,r_packet.source,r_packet.dest);
+		//}
         break;
     case RREP:
         N_DEBUG2("Received rrep on %d link=%d\n", nodeinfo.address, link);
@@ -243,6 +251,9 @@ void do_routing(int link, DATAGRAM datagram) {
                                                      reply_size);
 
             send_packet_to_link(reverse_route_link_id, reply_datagram);
+        } else {
+        	//signal that the route is found
+        	signal_transport(MTU_DISCOVERED,(CnetData)r_packet.dest);
         }
         break;
     }
@@ -262,7 +273,7 @@ int get_next_link_for_dest(CnetAddr destaddr) {
 }
 //-----------------------------------------------------------------------------
 // send a route request
-void send_route_request(CnetAddr destaddr) {
+void send_route_request(CnetAddr destaddr, int time_to_live) {
     if (pending_route_requests[destaddr] == NULLTIMER) {
         ROUTE_PACKET req_packet;
         req_packet.type = RREQ;
@@ -272,6 +283,7 @@ void send_route_request(CnetAddr destaddr) {
         req_packet.total_delay = 0;
         req_packet.req_id = route_req_id;
         req_packet.min_mtu = 0;
+        req_packet.time_to_live = time_to_live;
         route_req_id++;
         uint16_t request_size = sizeof(req_packet);
         DATAGRAM r_packet = alloc_datagram(__ROUTING__, nodeinfo.address,
@@ -279,10 +291,11 @@ void send_route_request(CnetAddr destaddr) {
                                             request_size);
 
         N_DEBUG1("sending rreq for %d\n", destaddr);
-
         // start timer for pending route request
         pending_route_requests[destaddr] = CNET_start_timer(
                 EV_ROUTE_PENDING_TIMER, ROUTE_REQUEST_TIMEOUT, destaddr);
+        pending_route_request_ttl[destaddr] = time_to_live;
+        //fprintf(stderr,"Sending rreq from %d to %d ttl=%d\n",nodeinfo.address,destaddr,time_to_live);
         // insert into local history table
         insert_local_history(req_packet.source, req_packet.req_id);
         broadcast_packet(r_packet, -1);
@@ -295,7 +308,7 @@ int get_mtu(CnetAddr address) {
         int t = find_address(address);
         return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE;
     } else {
-        send_route_request(address);
+        send_route_request(address,1);
         return -1;
     }
 }
@@ -306,7 +319,7 @@ void route_request_resend(CnetEvent ev, CnetTimerID timer, CnetData data) {
     if (route_exists(address) == 0) {
         pending_route_requests[address] = NULLTIMER;
         N_DEBUG1("Resending route request for %d\n", address);
-        send_route_request(address);
+        send_route_request(address,pending_route_request_ttl[address]+1);
     }
 }
 //-----------------------------------------------------------------------------
@@ -326,6 +339,7 @@ void init_routing() {
     // init route requests
     for (int i = 0; i < MAX_HOSTS_NUMBER; i++) {
         pending_route_requests[i] = NULLTIMER;
+        pending_route_request_ttl[i] = 0;
     }
     // register handler for resending route requests
     CHECK(CNET_set_handler(EV_ROUTE_PENDING_TIMER,route_request_resend, 0));
