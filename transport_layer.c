@@ -16,6 +16,7 @@
 static uint64_t observed_packets = 0;
 static CnetTime average_observed = 0;
 static CnetTime average_measured = 0;
+static CnetTime average_deviation = 0;
 static unsigned int packets_retransmitted_total = 0;
 static unsigned int separate_ack = 0;
 static unsigned int sent_messages = 0;
@@ -36,6 +37,7 @@ typedef struct sliding_window {
     int retransmitted[NRBUFS];
     // adaptive timeouts
     CnetTime adaptive_timeout;
+    CnetTime adaptive_deviation;
     CnetTime timesent[NRBUFS][MAXFR];
     // sliding window variables
     int nbuffered;               // sender side
@@ -98,6 +100,7 @@ static int find_swin(CnetAddr address) {
 
     // adaptive timeout
     swin[swin_size].adaptive_timeout = 0;
+    swin[swin_size].adaptive_deviation = 0;
 
     // sliding window
     swin[swin_size].nbuffered        = 0;
@@ -147,27 +150,53 @@ static int between(int a, int b, int c) {
     return ((cond3 && cond1) || (cond2 && cond3) || (cond1 && cond2));
 }
 //-----------------------------------------------------------------------------
-//static void sample_timeout(int table_ind, PACKET pkt) {
-
-//}
+static void reset_sender_window(int ack_mod, int table_ind) {
+    --swin[table_ind].nbuffered;
+    swin[table_ind].retransmitted[ack_mod] = FALSE;
+    for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
+        swin[table_ind].arrivedacks[ack_mod][i] = FALSE;
+        swin[table_ind].timesent[ack_mod][i] = -1;
+    }
+    swin[table_ind].numacks[ack_mod] = 0;
+    swin[table_ind].allackssarrived[ack_mod] = FALSE;
+    if (swin[table_ind].timers[ack_mod] != NULLTIMER)
+        CNET_stop_timer(swin[table_ind].timers[ack_mod]);
+    swin[table_ind].timers[ack_mod] = NULLTIMER;
+}
 //-----------------------------------------------------------------------------
-static void adapt_timeout(uint8_t dst, uint16_t pkt_len, int table_ind, PACKET pkt) {
+static void reset_receiver_window(int frameexpected_mod, int table_ind) {
+    swin[table_ind].nonack = TRUE;
+    swin[table_ind].inlengths[frameexpected_mod] = 0;
+    swin[table_ind].arrived[frameexpected_mod] = FALSE;
+
+    for (int f = 0; f < swin[table_ind].numfrags[frameexpected_mod]; f++)
+        swin[table_ind].arrivedfrags[frameexpected_mod][f] = FALSE;
+
+    swin[table_ind].mtusize[frameexpected_mod] = 0;
+    swin[table_ind].numfrags[frameexpected_mod] = 0;
+    swin[table_ind].lastfullfragment = swin[table_ind].lastfrag[frameexpected_mod];
+    swin[table_ind].lastfrag[frameexpected_mod] = -1;
+
+}
+//-----------------------------------------------------------------------------
+static void set_timeout(uint8_t dst, uint16_t pkt_len, PACKET pkt, int table_ind) {
     uint8_t seqno = pkt.seqno % NRBUFS;
 
     // figure out where to send
     int link = get_next_link_for_dest(dst);
 
+    // initialize timeout
     if (swin[table_ind].adaptive_timeout == 0) {
         double prop_delay = linkinfo[link].propagationdelay;
         double bandwidth = linkinfo[link].bandwidth;
         swin[table_ind].adaptive_timeout = 100.0*(prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+pkt_len) / bandwidth));
     }
+    // set timeout based on first fragment only
     if (swin[table_ind].timers[seqno] == NULLTIMER) {
         CnetData data = (dst << 8) | seqno;
-        swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, swin[table_ind].adaptive_timeout, data);
+        CnetTime timeout = 1.5*swin[table_ind].adaptive_timeout+8*swin[table_ind].adaptive_deviation;
+        swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, timeout, data);
     }
-
-    assert(swin[table_ind].adaptive_timeout > 0);
 }
 //-----------------------------------------------------------------------------
 // gives a packet to the network layer setting the piggybacked acknowledgement
@@ -205,7 +234,7 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
 
     // if transmitting data, set up a retransmit timer
     if (is_kind(kind, __DATA__)) {
-        adapt_timeout(dst, pkt_len, table_ind, pkt);
+        set_timeout(dst, pkt_len, pkt, table_ind);
         T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", pkt.seqno, pkt.segid, pkt_len-PACKET_HEADER_SIZE);
     }
 
@@ -215,11 +244,10 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
 // takes a pending packet out of the waiting queue, fragments it and transmits
 // fragment by fragment
 void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
+    // find host and appropriate sliding window
     uint8_t dest = (uint8_t) data;
     int table_ind = find_swin(dest);
     swin[table_ind].flush_queue_timer = NULLTIMER;
-
-    assert(queue_nitems(swin[table_ind].fragment_queue) != 0);
 
     if (queue_nitems(swin[table_ind].fragment_queue) != 0) {
         size_t frag_len;
@@ -237,13 +265,11 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
             sent_messages++;
 
             // get the first packet in the queue
+            int nf = swin[table_ind].nextframetosend % NRBUFS;
             frg = queue_remove(swin[table_ind].fragment_queue, &frag_len);
 
-            // copy to a local packet
-            size_t total_mess_len = frg->len;
-            int nf = swin[table_ind].nextframetosend % NRBUFS;
-
             // copy first packet to the sliding window
+            size_t total_mess_len = frg->len;
             swin[table_ind].outlengths[nf] = frg->len;
             swin[table_ind].outpacket[nf].seqno = swin[table_ind].nextframetosend;
             memcpy((char*) swin[table_ind].outpacket[nf].msg,
@@ -254,7 +280,6 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
             uint32_t total_length = 0;
             while (total_length < frg->len) {
                 PACKET frg_seg;
-                // find out the length of the fragment
                 uint16_t frg_seg_len;
                 if (frg->len - total_length < mtu)
                     frg_seg_len = frg->len - total_length;
@@ -288,11 +313,10 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
             free(frg);
         }
-        if (queue_nitems(swin[table_ind].fragment_queue) != 0) {
-            swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, dest);
-        } else
-            swin[table_ind].flush_queue_timer = NULLTIMER;
-    } else
+    }
+    if (queue_nitems(swin[table_ind].fragment_queue) != 0)
+        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, dest);
+    else
         swin[table_ind].flush_queue_timer = NULLTIMER;
 }
 //-----------------------------------------------------------------------------
@@ -306,20 +330,29 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         int ack_mod = swin[table_ind].ackexpected % NRBUFS;
 
         // check that all of the fragments are acknowledged
-        CnetTime measured, observed = 0;
+        //int duplicate_ack = FALSE;
+        CnetTime measured, curr_deviation, observed, difference;
         if (swin[table_ind].ackexpected != pkt.ackseqno) {
             // handle adaptive timeout
             for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
-                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE && swin[table_ind].retransmitted[ack_mod] == FALSE) {
-                    observed_packets++;
-                    average_measured += swin[table_ind].adaptive_timeout;
-                    average_observed += nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
+                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE) {
+                    // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
 
+                    // update standard deviation
+                    difference = observed-measured;
+                    curr_deviation = swin[table_ind].adaptive_deviation;
+                    swin[table_ind].adaptive_deviation = curr_deviation+LEARNING_RATE*(fabs(difference)-curr_deviation);
+                    swin[table_ind].adaptive_timeout = observed+LEARNING_RATE*swin[table_ind].adaptive_deviation;
+
+                    // update statistics
+                    observed_packets++;
+                    average_measured += swin[table_ind].adaptive_timeout;
+                    average_observed += observed;
+
                     assert(observed > 0);
                     assert(measured > 0);
-                    swin[table_ind].adaptive_timeout = LEARNING_RATE*observed+(1-LEARNING_RATE)*measured;
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
                 swin[table_ind].arrivedacks[ack_mod][i] = TRUE;
@@ -327,16 +360,25 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
             swin[table_ind].allackssarrived[ack_mod] = TRUE;
         } else {
             for (int i = 0; i <= pkt.acksegid; i++) {
-                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE && swin[table_ind].retransmitted[ack_mod] == FALSE) {
-                    observed_packets++;
-                    average_measured += swin[table_ind].adaptive_timeout;
-                    average_observed += nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
+                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE) {
+                    // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
 
+                    // update standard deviation
+                    difference = observed-measured;
+                    curr_deviation = swin[table_ind].adaptive_deviation;
+                    swin[table_ind].adaptive_deviation = curr_deviation+LEARNING_RATE*(fabs(difference)-curr_deviation);
+                    swin[table_ind].adaptive_timeout = observed+LEARNING_RATE*swin[table_ind].adaptive_deviation;
+
+                    // update statistics
+                    observed_packets++;
+                    average_measured += swin[table_ind].adaptive_timeout;
+                    average_observed += nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
+                    average_deviation += swin[table_ind].adaptive_deviation;
+
                     assert(observed > 0);
                     assert(measured > 0);
-                    swin[table_ind].adaptive_timeout = LEARNING_RATE*observed+(1-LEARNING_RATE)*measured;
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
                 swin[table_ind].arrivedacks[ack_mod][i] = TRUE;
@@ -353,18 +395,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         acked = TRUE;
 
         // reset the variables for the next packet
-        --swin[table_ind].nbuffered;
-        swin[table_ind].retransmitted[ack_mod] = FALSE;
-        for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
-            swin[table_ind].arrivedacks[ack_mod][i] = FALSE;
-            swin[table_ind].timesent[ack_mod][i] = -1;
-        }
-
-        swin[table_ind].numacks[ack_mod] = 0;
-        swin[table_ind].allackssarrived[ack_mod] = FALSE;
-        if (swin[table_ind].timers[ack_mod] != NULLTIMER)
-            CNET_stop_timer(swin[table_ind].timers[ack_mod]);
-        swin[table_ind].timers[ack_mod] = NULLTIMER;
+        reset_sender_window(ack_mod, table_ind);
 
         inc(&(swin[table_ind].ackexpected));
     }
@@ -373,66 +404,55 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
 }
 //-----------------------------------------------------------------------------
 void handle_nack(CnetAddr src, PACKET pkt, int table_ind) {
-    int seqno_mod = pkt.seqno % NRBUFS;
+    uint8_t seqno = pkt.seqno % NRBUFS;
 
-    int mtu = get_mtu(src);
-    uint32_t total_length = (pkt.segid+1) * mtu;
-    int pkt_len = swin[table_ind].outlengths[seqno_mod % NRBUFS];
+//    int mtu = get_mtu(src);
+//    uint32_t total_length = (pkt.segid+1) * mtu;
+//    int pkt_len = swin[table_ind].outlengths[seqno_mod % NRBUFS];
 
-    size_t frg_len;
-    if (pkt_len - total_length < mtu)
-        frg_len = pkt_len - total_length;
-    else
-        frg_len = mtu;
+//    size_t frg_len;
+//    if (pkt_len - total_length < mtu)
+//        frg_len = pkt_len - total_length;
+//    else
+//        frg_len = mtu;
 
-    uint8_t frg_seg_kind = __DATA__;
-    if (total_length + mtu >= pkt_len)
-        frg_seg_kind |= __LASTSGM__;
+//    uint8_t frg_seg_kind = __DATA__;
+//    if (total_length + mtu >= pkt_len)
+//        frg_seg_kind |= __LASTSGM__;
 
-    PACKET frg;
-    size_t offset = pkt.segid*mtu;
-    memcpy((char*)frg.msg, (char*)swin[table_ind].outpacket[seqno_mod].msg+offset, frg_len);
-    frg.seqno = pkt.seqno;
-    frg.segid = pkt.segid;
+//    PACKET frg;
+//    size_t offset = pkt.segid*mtu;
+//    memcpy((char*)frg.msg, (char*)swin[table_ind].outpacket[seqno_mod].msg+offset, frg_len);
+//    frg.seqno = pkt.seqno;
+//    frg.segid = pkt.segid;
 
-    transmit_packet(frg_seg_kind, src, PACKET_HEADER_SIZE, frg);
+//    transmit_packet(frg_seg_kind, src, PACKET_HEADER_SIZE, frg);
+    CNET_stop_timer(swin[table_ind].timers[seqno]);
+
+    //CnetEvent ev = -1; CnetTimerID ti = -1; CnetData data = (src << 8) | seqno;
+    //ack_timeout(ev, ti, data);
 }
 //-----------------------------------------------------------------------------
-void handle_out_of_order_data(uint16_t len, CnetAddr src, PACKET pkt, int table_ind) {
+void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
+    // if not the segment expected send a NACK
     PACKET frg;
-    if(pkt.seqno != swin[table_ind].frameexpected) {
-        int prev_frg_id = pkt.segid-1;
-        if (prev_frg_id >= 0) {
-            if (!swin[table_ind].arrivedfrags[pkt.seqno % NRBUFS][prev_frg_id] &&
-                 swin[table_ind].nonack) {
-
-                frg.seqno = pkt.seqno;
-                frg.segid = prev_frg_id;
-                transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
-                return;
-            }
-        }
-
-        int prev_pkt_seqno = (pkt.seqno+MAXSEQ) % (MAXSEQ+1);
-        prev_frg_id = swin[table_ind].numfrags[prev_pkt_seqno % NRBUFS]-1;
-        if (swin[table_ind].nonack && prev_frg_id >= 0 &&
-            !swin[table_ind].arrivedfrags[prev_pkt_seqno % NRBUFS][prev_frg_id]) {
-
-            frg.seqno = prev_pkt_seqno;
-            frg.segid = prev_frg_id;
-            transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
-            return;
-        }
-    } else {
-        // if not segment expected
-        int prev_frg_id = pkt.segid-1;
-        if (prev_frg_id >= 0 && swin[table_ind].nonack &&
-            !swin[table_ind].arrivedfrags[pkt.seqno % NRBUFS][prev_frg_id]) {
-
-            frg.segid = prev_frg_id;
+    if(pkt.seqno != swin[table_ind].frameexpected && swin[table_ind].nonack) {
+        int frg_id = pkt.segid-1;
+        if(frg_id == -1) {
+            frg.seqno = (pkt.seqno+MAXSEQ)%(MAXSEQ+1);
+        } else
             frg.seqno = pkt.seqno;
+
+        frg.segid = 0;
+        transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
+    } else {
+        int frg_id = pkt.segid-1;
+        if (swin[table_ind].nonack && frg_id >= 0 &&
+            !swin[table_ind].arrivedfrags[pkt.seqno % NRBUFS][frg_id]) {
+
+            frg.seqno = pkt.seqno;
+            frg.segid = frg_id;
             transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
-            return;
         }
     }
 }
@@ -457,9 +477,10 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
     if (swin[table_ind].mtusize[pkt_seqno_mod] != 0) {
         swin[table_ind].inpacket[pkt_seqno_mod].seqno = pkt.seqno;
         swin[table_ind].arrivedfrags[pkt_seqno_mod][pkt.segid] = TRUE;
-        uint32_t offset = swin[table_ind].mtusize[pkt_seqno_mod] * pkt.segid;
-        size_t mess_len = length - PACKET_HEADER_SIZE;
-        memcpy((char*) swin[table_ind].inpacket[pkt_seqno_mod].msg + offset, (char*) pkt.msg, mess_len);
+
+        size_t mess_len = length-PACKET_HEADER_SIZE;
+        uint32_t offset = swin[table_ind].mtusize[pkt_seqno_mod]*pkt.segid;
+        memcpy((char*) swin[table_ind].inpacket[pkt_seqno_mod].msg+offset, (char*) pkt.msg, mess_len);
 
         swin[table_ind].inlengths[pkt_seqno_mod] += (length - PACKET_HEADER_SIZE);
     }
@@ -487,17 +508,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, swin[table_ind].frameexpected);
 
         // reset the variables for next packet
-        swin[table_ind].nonack = TRUE;
-        swin[table_ind].inlengths[frameexpected_mod] = 0;
-        swin[table_ind].arrived[frameexpected_mod] = FALSE;
-
-        for (int f = 0; f < swin[table_ind].numfrags[frameexpected_mod]; f++)
-            swin[table_ind].arrivedfrags[frameexpected_mod][f] = FALSE;
-
-        swin[table_ind].mtusize[frameexpected_mod] = 0;
-        swin[table_ind].numfrags[frameexpected_mod] = 0;
-        swin[table_ind].lastfullfragment = swin[table_ind].lastfrag[frameexpected_mod];
-        swin[table_ind].lastfrag[frameexpected_mod] = -1;
+        reset_receiver_window(frameexpected_mod, table_ind);
 
         // shift sliding window
         inc(&(swin[table_ind].frameexpected));
@@ -534,14 +545,14 @@ void read_transport(uint8_t kind, uint16_t length, CnetAddr src, char * packet) 
     }
     // TODO: fix NACK checking in between
     if (is_kind(kind, __NACK__))
-        if(between(swin[table_ind].ackexpected, (pkt.ackseqno+1) % (MAXSEQ+1), swin[table_ind].nextframetosend)) {
-            ;//handle_nack(kind, length, src, pkt, table_ind);
+        if(between(swin[table_ind].ackexpected, pkt.ackseqno, swin[table_ind].nextframetosend)) {
+            handle_nack(src, pkt, table_ind);
         }
     // receiver side
     if (is_kind(kind, __DATA__)) {
         // if a frame is out of order, possibly a frame loss occured, so send a NACK
         // figure out the previous segment to the one just received and check if it arrived
-        //handle_out_of_order_data(length, src, pkt, table_ind);
+        handle_out_of_order_data(src, pkt, table_ind);
 
         T_DEBUG4("i\t\tDATA arrived seq: %d seg: %d bet: %d arr: %d\n", pkt.seqno, pkt.segid,
                  between(swin[table_ind].frameexpected, pkt.seqno, swin[table_ind].toofar),
@@ -584,8 +595,6 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     int table_ind = find_swin((CnetAddr)((data >> 8) & UCHAR_MAX));
     swin[table_ind].timers[seqno_mod] = NULLTIMER;
 
-    // Karn's algorithm
-    swin[table_ind].adaptive_timeout *= 2;
     swin[table_ind].retransmitted[seqno] = TRUE;
 
     // find out where to send and how to fragment
@@ -651,10 +660,8 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 
     assert(swin[table_ind].nbuffered <= NRBUFS);
 
-    if(queue_nitems(swin[table_ind].fragment_queue) == 0) {
-        CnetTime timeout = 1;
-        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, timeout, (CnetData) destaddr);
-    }
+    if(queue_nitems(swin[table_ind].fragment_queue) == 0)
+        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, destaddr);
 
     queue_add(swin[table_ind].fragment_queue, &frg, frg_len);
 }
@@ -663,10 +670,11 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
     fprintf(stderr, "address: %d\n", nodeinfo.address);
     fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
-    fprintf(stderr, "\tseparate ack: %d\n", separate_ack);
-    fprintf(stderr, "\tmeasured timer: %d\n", (int)((double)average_measured / (double) observed_packets));
-    fprintf(stderr, "\tobserved timer: %d\n", (int)((double)average_observed / (double) observed_packets));
     fprintf(stderr, "\tretransmitted: %d\n", packets_retransmitted_total);
+    fprintf(stderr, "\tseparate ack: %d\n", separate_ack);
+    fprintf(stderr, "\tdeviation timer: %f\n",((double)average_deviation/(double)observed_packets));
+    fprintf(stderr, "\tmeasured timer: %f\n", ((double)average_measured / (double) observed_packets));
+    fprintf(stderr, "\tobserved timer: %f\n", ((double)average_observed / (double) observed_packets));
     destroy_sliding_window();
     shutdown_network();
 }
