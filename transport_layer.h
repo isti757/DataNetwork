@@ -27,7 +27,7 @@
 #define TRUE        1
 //-----------------------------------------------------------------------------
 // adaptive timeouts
-#define LEARNING_RATE 0.8
+#define LEARNING_RATE 0.12500
 #define SLOWDOWN_RATE 1.2
 //-----------------------------------------------------------------------------
 // initialize transport layer
@@ -40,6 +40,8 @@ extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 extern void read_transport(uint8_t kind,uint16_t length,CnetAddr source,char * packet);
 //-----------------------------------------------------------------------------
 extern void signal_transport(SIGNALKIND sg, SIGNALDATA data);
+//-----------------------------------------------------------------------------
+extern void ack_timeout(CnetEvent ev, CnetTimerID ti, CnetData data);
 //-----------------------------------------------------------------------------
 
 #endif /* TRANSPORT_LAYER_H_ */
