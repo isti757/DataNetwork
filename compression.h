@@ -17,8 +17,7 @@
 #endif
 #define OUT_LEN     (IN_LEN + IN_LEN / 16 + 64 + 3)
 
-static unsigned char __LZO_MMODEL in  [ IN_LEN ];
-static unsigned char __LZO_MMODEL out [ OUT_LEN ];
+static unsigned char __LZO_MMODEL *in;
 
 #define HEAP_ALLOC(var,size) \
     lzo_align_t __LZO_MMODEL var [ ((size) + (sizeof(lzo_align_t) - 1)) / sizeof(lzo_align_t) ]
