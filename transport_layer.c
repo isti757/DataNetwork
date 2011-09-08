@@ -516,9 +516,9 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
             fprintf(stderr,"internal error - decompression failed: %d\n", r);
             abort();
         }
-
+        size_t nlen = new_len;
         // push the message to application layer
-        CHECK(CNET_write_application((char*)in, &new_len));
+        CHECK(CNET_write_application((char*)in, &nlen));
     }
 
     // start a separate ack timer
