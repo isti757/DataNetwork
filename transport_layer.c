@@ -205,9 +205,9 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
         pkt.acksegid = swin[table_ind].lastfrag[last_pkt_ind % NRBUFS];
     }
 
-//    if (is_kind(kind, __ACK__)) {
-//        T_DEBUG2("i\t\tACK transmitted seq: %d seg: %d\n", pkt.ackseqno, pkt.acksegid);
-//    }
+    if (is_kind(kind, __ACK__)) {
+        T_DEBUG2("i\t\tACK transmitted seq: %d seg: %d\n", pkt.ackseqno, pkt.acksegid);
+    }
 
     if(is_kind(kind, __NACK__)) {
         swin[table_ind].nonack = FALSE;
@@ -216,7 +216,7 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
     // if transmitting data, set up a retransmit timer
     if (is_kind(kind, __DATA__)) {
         set_timeout(dst, pkt_len, pkt, table_ind);
-//        T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", pkt.seqno, pkt.segid, pkt_len-PACKET_HEADER_SIZE);
+        T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", pkt.seqno, pkt.segid, pkt_len-PACKET_HEADER_SIZE);
     }
 
     write_network(kind, dst, pkt_len, (char*)&pkt);
@@ -236,11 +236,11 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
         // make sure that the path and mtu are discovered
         int mtu = get_mtu(frg->dest);
-//        if(mtu == -1) {
-//             CNET_disable_application(dest);
-//             swin[table_ind].flush_queue_timer = NULLTIMER;
-//             return;
-//        }
+        if(mtu == -1) {
+             CNET_disable_application(dest);
+             swin[table_ind].flush_queue_timer = NULLTIMER;
+             return;
+        }
         // if path is discovered and there is space in sliding window
         if (mtu != -1) {
             sent_messages++;
@@ -333,6 +333,8 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     observed_packets++;
                     average_measured += swin[table_ind].adaptive_timeout;
                     average_observed += observed;
+                    average_deviation += swin[table_ind].adaptive_deviation;
+
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
                 swin[table_ind].arrivedacks[ack_mod][i] = TRUE;
@@ -497,7 +499,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         int frameexpected_mod = swin[table_ind].frameexpected % NRBUFS;
         size_t len = swin[table_ind].inlengths[frameexpected_mod];
 
-//        T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, swin[table_ind].frameexpected);
+        T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, swin[table_ind].frameexpected);
 
         // reset the variables for next packet
         reset_receiver_window(frameexpected_mod, table_ind);
@@ -581,7 +583,7 @@ void separate_ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 // called for retransmitting the timeouted packet. performs fragmentation
 // of the packet and transmitting unacknowledged fragments
 void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
-    packets_retransmitted_total++;
+   packets_retransmitted_total++;
 
     uint8_t seqno = (int) data & UCHAR_MAX;
     uint8_t seqno_mod = seqno % NRBUFS;
@@ -704,14 +706,13 @@ void init_transport() {
 void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
     if (sg == DISCOVERY_FINISHED) {
         T_DEBUG("Discovery finished\n");
-        //if(nodeinfo.address == 134)
         CNET_enable_application(ALLNODES);
     }
     if (sg == MTU_DISCOVERED) {
-//        uint8_t address = (uint8_t)data;
-//        int table_ind = find_swin(address);
-//        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
-//        CNET_enable_application(address);
+        uint8_t address = (uint8_t)data;
+        int table_ind = find_swin(address);
+        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
+        CNET_enable_application(address);
     }
 }
 //-----------------------------------------------------------------------------
