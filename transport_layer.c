@@ -236,11 +236,11 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
         // make sure that the path and mtu are discovered
         int mtu = get_mtu(frg->dest);
-//        if(mtu == -1) {
-//             CNET_disable_application(dest);
-//             swin[table_ind].flush_queue_timer = NULLTIMER;
-//             return;
-//        }
+        if(mtu == -1) {
+             CNET_disable_application(dest);
+             swin[table_ind].flush_queue_timer = NULLTIMER;
+             return;
+        }
         // if path is discovered and there is space in sliding window
         if (mtu != -1) {
             sent_messages++;
@@ -514,9 +514,9 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
             fprintf(stderr,"internal error - decompression failed: %d\n", r);
             abort();
         }
-
+        size_t nlen = new_len;
         // push the message to application layer
-        CHECK(CNET_write_application((char*)in, &new_len));
+        CHECK(CNET_write_application((char*)in, &nlen));
     }
 
     // start a separate ack timer
@@ -708,10 +708,10 @@ void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
         CNET_enable_application(ALLNODES);
     }
     if (sg == MTU_DISCOVERED) {
-//        uint8_t address = (uint8_t)data;
-//        int table_ind = find_swin(address);
-//        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
-//        CNET_enable_application(address);
+        uint8_t address = (uint8_t)data;
+        int table_ind = find_swin(address);
+        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
+        CNET_enable_application(address);
     }
 }
 //-----------------------------------------------------------------------------
