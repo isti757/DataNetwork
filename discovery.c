@@ -23,8 +23,6 @@ void init_discovery() {
         response_status[i] = 0;
 
     CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_START_UP_TIME, POLLTIMER);
-    if (cnet_errno != ER_OK)
-        CNET_perror("Starting timer line 26 discovery.c");
 }
 //-----------------------------------------------------------------------------
 /* process a discovery protocol packet */
@@ -83,8 +81,6 @@ void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
         }
         // start poll fail timer for this poll period
         CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT, POLLRESPONSETIMER);
-        if (cnet_errno != ER_OK)
-            CNET_perror("Starting timer line 85 discovery.c");
         break;
     case POLLRESPONSETIMER:
         N_DEBUG("Checking for polling responses\n");
@@ -97,8 +93,6 @@ void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
         }
         if (run_timer == 1) {
             CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT, POLLRESPONSETIMER);
-            if (cnet_errno != ER_OK)
-                CNET_perror("Starting timer line 98 discovery.c");
             N_DEBUG("Timer started again\n");
         } else {
             // notify the transport layer

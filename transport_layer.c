@@ -168,7 +168,7 @@ static void set_timeout(uint8_t dst, uint16_t pkt_len, PACKET pkt, int table_ind
 
     // initialize timeout
     if (swin[table_ind].adaptive_timeout == 0) {
-        double prop_delay = linkinfo[link].propagationdelay;
+        double prop_delay = get_propagation_delay(dst);
         double bandwidth = linkinfo[link].bandwidth;
         swin[table_ind].adaptive_timeout = 3.0*(prop_delay + 8000000 * ((double)(DATAGRAM_HEADER_SIZE+pkt_len) / bandwidth));
     }

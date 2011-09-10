@@ -62,7 +62,6 @@ static int whichlink(CnetAddr address) {
     return link;
 }
 //-----------------------------------------------------------------------------
-int said = 0;
 // learn routing table TODO what about the best route?
 void learn_route_table(CnetAddr address, int hops, int link, int mtu, CnetTime total_delay) {
     int t = find_address(address);
@@ -334,6 +333,16 @@ void init_routing() {
     }
     // register handler for resending route requests
     CHECK(CNET_set_handler(EV_ROUTE_PENDING_TIMER,route_request_resend, 0));
+}
+//-----------------------------------------------------------------------------
+int get_propagation_delay(CnetAddr destaddr) {
+    if (route_exists(destaddr)) {
+        int t = find_address(destaddr);
+        return route_table[t].total_delay;
+    } else {
+        fprintf(stderr,"No route for %d\n",destaddr);
+        return -1;
+    }
 }
 //-----------------------------------------------------------------------------
 void shutdown_routing() {
