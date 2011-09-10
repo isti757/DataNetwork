@@ -47,6 +47,8 @@ void write_datalink(int link, char *datagram, uint32_t length) {
     if (datalink_timers[link] == NULLTIMER) {
         CnetTime timeout_flush = 1;
         datalink_timers[link] = CNET_start_timer(EV_DATALINK_FLUSH, timeout_flush, link);
+        if (cnet_errno != ER_OK)
+            CNET_perror("Starting timer line 50 datalink.c");
     }
 
     // add to the link queue
@@ -80,6 +82,8 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         double bandwidth = linkinfo[link].bandwidth;
         CnetTime timeout = 1+8000005.0*(datagram_length / bandwidth);
         datalink_timers[link] = CNET_start_timer(EV_DATALINK_FLUSH, timeout, current_link);
+        if (cnet_errno != ER_OK)
+            CNET_perror("Starting timer line 84 datalink.c.c");
         free((DTG_CONTAINER*) dtg_container);
     } else {
         datalink_timers[current_link] = NULLTIMER;

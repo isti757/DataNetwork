@@ -36,7 +36,7 @@ void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet)
 	DATAGRAM dtg;
 	dtg.src = nodeinfo.address;
 	dtg.dest = address;
-    dtg.kind = kind | __TRANSPORT__;
+        dtg.kind = kind | __TRANSPORT__;
 	dtg.length = length;
 	size_t packet_length = length;
 	//copy the payload
