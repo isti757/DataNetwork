@@ -240,6 +240,12 @@ void do_routing(int link, DATAGRAM datagram) {
             route_notified[r_packet.dest] += 1;
             if (route_notified[r_packet.dest] == 1) {
                 pending_route_requests[r_packet.dest] = CNET_stop_timer(pending_route_requests[r_packet.dest]);
+
+                if (cnet_errno != ER_OK) {
+                    CNET_perror("Stop timer line 245 routing.c");
+                    cnet_errno = ER_OK;
+                }
+
                 //signal that the route is found
                 //fprintf(stderr,"Signal transport on %d about %d\n",nodeinfo.address,r_packet.dest);
                 signal_transport(MTU_DISCOVERED,(CnetData)r_packet.dest);
@@ -284,6 +290,10 @@ void send_route_request(CnetAddr destaddr, int time_to_live) {
         // start timer for pending route request
         if (pending_route_requests[destaddr]!=NULLTIMER) {
            CNET_stop_timer(pending_route_requests[destaddr]);
+           if (cnet_errno != ER_OK) {
+               CNET_perror("Stop timer line 294 routing.c");
+               cnet_errno = ER_OK;
+           }
         }
         pending_route_requests[destaddr] = CNET_start_timer(
                 EV_ROUTE_PENDING_TIMER, ROUTE_REQUEST_TIMEOUT, destaddr);
