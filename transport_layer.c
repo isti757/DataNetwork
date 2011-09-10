@@ -454,7 +454,7 @@ void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
 //-----------------------------------------------------------------------------
 void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int table_ind) {
     // avoid recomputing the modulus
-    int pkt_seqno_mod = pkt.seqno % NRBUFS;
+    int pkt_seqno_mod = (int)pkt.seqno % NRBUFS;
 
     // figure out mtu and number of fragments to come
     int lastmsg = is_kind(kind, __LASTSGM__);
@@ -480,11 +480,15 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         swin[table_ind].inlengths[pkt_seqno_mod] += (length - PACKET_HEADER_SIZE);
     }
 
+    assert(swin[table_ind].arrived[swin[table_ind].frameexpected % NRBUFS] == FALSE);
+
     // find if all fragments arrived
     int prev_last_frag = swin[table_ind].lastfrag[pkt_seqno_mod];
     if (swin[table_ind].numfrags[pkt_seqno_mod] > 0) {
         swin[table_ind].arrived[pkt_seqno_mod] = TRUE;
         swin[table_ind].lastfrag[pkt_seqno_mod] = -1;
+
+        //int num_frags = swin[table_ind].numfrags[pkt_seqno_mod];
         for (int f = 0; f < swin[table_ind].numfrags[pkt_seqno_mod]; f++) {
             if (swin[table_ind].arrivedfrags[pkt_seqno_mod][f] == FALSE) {
                 swin[table_ind].arrived[pkt_seqno_mod] = FALSE;
@@ -494,6 +498,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
             }
         }
     }
+
     // deliver arrived messages to application layer
     int arrived_frame = FALSE;
     while (swin[table_ind].arrived[swin[table_ind].frameexpected % NRBUFS]) {
@@ -520,7 +525,18 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         }
         size_t nlen = new_len;
         // push the message to application layer
-        CHECK(CNET_write_application((char*)in, &nlen));
+        CNET_write_application((char*)in, &nlen);
+        memset(in, 0, (size_t)IN_LEN);
+        memset(swin[table_ind].inpacket[frameexpected_mod].msg, 0, nlen);
+        if(cnet_errno != ER_OK) {
+            fprintf(stderr, "carefull, too far and frameexpected are incremented!!!\n");
+            CNET_perror("Write app: ");
+            fprintf(stderr, "from %u to %u seq: %d\n", src, nodeinfo.address, frameexpected_mod);
+            fprintf(stderr, "frameexpected: %d\n", swin[table_ind].frameexpected);
+            fprintf(stderr, "toofar: %d\n", swin[table_ind].toofar);
+            fprintf(stderr, "frameexpected_mod: %d\n", frameexpected_mod);
+            abort();
+        }
     }
 
     // start a separate ack timer

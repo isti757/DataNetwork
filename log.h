@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-FILE *logfile_forward;
-FILE *logfile_send;
+//FILE *logfile_forward;
+//FILE *logfile_send;
 
 #endif // LOG_H
