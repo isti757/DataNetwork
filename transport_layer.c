@@ -529,10 +529,11 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         if(cnet_errno != ER_OK) {
             fprintf(stderr, "carefull, too far and frameexpected are incremented!!!\n");
             CNET_perror("Write app: ");
-            fprintf(stderr, "from %u to %u seq: %d\n", src, nodeinfo.address, frameexpected_mod);
+            fprintf(stderr, "from %d to %d seq: %d\n", src, nodeinfo.address, frameexpected_mod);
             fprintf(stderr, "frameexpected: %d\n", swin[table_ind].frameexpected);
             fprintf(stderr, "toofar: %d\n", swin[table_ind].toofar);
             fprintf(stderr, "frameexpected_mod: %d\n", frameexpected_mod);
+            fprintf(stderr, "NRBUFS: %d %u", NRBUFS, NRBUFS);
             abort();
         }
     }
