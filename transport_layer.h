@@ -34,6 +34,8 @@
 //-----------------------------------------------------------------------------
 // sliding window definition
 typedef struct sliding_window {
+    // statistics
+    int messages_processed;
     // refering address
     CnetAddr address;
     // timeouts management

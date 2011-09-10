@@ -7,10 +7,13 @@
 
 #include <cnet.h>
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 
+#include "log.h"
+#include "packet.h"
 #include "debug.h"
 #include "network_layer.h"
 
@@ -18,8 +21,12 @@ int frames_ignored = 0;
 //-----------------------------------------------------------------------------
 //initialize the network table
 void init_network() {
-	init_routing();
-	init_discovery();
+    char filename[] = "logfor___";
+    sprintf(filename+6, "%3d", nodeinfo.address);
+    filename[9] = '\0';
+    logfile_forward = fopen(filename, "a");
+    init_routing();
+    init_discovery();
 }
 //-----------------------------------------------------------------------------
 static unsigned int packets_forwarded_total = 0;
@@ -76,13 +83,21 @@ void read_network(int link, size_t length, char * datagram) {
 		do_routing(link, dtg);
 	if (is_kind(dtg.kind,__TRANSPORT__)) {
 		N_DEBUG("received datagram on transport level\n");
-		if (dtg.dest != nodeinfo.address) {
-			N_DEBUG("forwarding..\n");
-			route(dtg);
-            packets_forwarded_total++;
+                PACKET pkt;
+                size_t len_to_cpy = dtg.length;
+                memcpy((char*)&pkt, dtg.payload, len_to_cpy);
+                if ((CnetAddr)(dtg.dest) != nodeinfo.address) {
+                    N_DEBUG("forwarding..\n");
+
+                    fprintf(logfile_forward, "src: %d dest: %d hop: %d time: %u seq: %u seg: %u\n", dtg.src, dtg.dest, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
+
+                    route(dtg);
+                    packets_forwarded_total++;
 
 		} else {
-			read_transport(dtg.kind, dtg.length, dtg.src, (char*)dtg.payload);
+                    fprintf(logfile_forward, "src: %d dest: %d hop: %d time: %u seq: %u seg: %u\n", dtg.src, dtg.dest, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
+
+                    read_transport(dtg.kind, dtg.length, dtg.src, (char*)dtg.payload);
 		}
 	}
 }
@@ -95,7 +110,9 @@ DATAGRAM alloc_datagram(uint8_t prot, int src, int dest, char *p, uint16_t len) 
 	np.dest = dest;
 	//np->hopCount = MAX_HOP_COUNT;
 	np.length = len;
-	memcpy((char*)np.payload, (char*)p, len);
+
+        size_t len_to_copy = len;
+        memcpy((char*)np.payload, (char*)p, len_to_copy);
 	return np;
 }
 //-----------------------------------------------------------------------------
@@ -126,8 +143,10 @@ void broadcast_packet(DATAGRAM dtg, int exclude_link) {
 }
 //-----------------------------------------------------------------------------
 void shutdown_network() {
+    fclose(logfile_forward);
     histogram();
     shutdown_routing();
     shutdown_datalink();
 }
 //-----------------------------------------------------------------------------
+
