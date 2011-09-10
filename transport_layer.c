@@ -526,8 +526,6 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         size_t nlen = new_len;
         // push the message to application layer
         CNET_write_application((char*)in, &nlen);
-        memset(in, 0, (size_t)IN_LEN);
-        memset(swin[table_ind].inpacket[frameexpected_mod].msg, 0, nlen);
         if(cnet_errno != ER_OK) {
             fprintf(stderr, "carefull, too far and frameexpected are incremented!!!\n");
             CNET_perror("Write app: ");
