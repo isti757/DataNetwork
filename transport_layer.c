@@ -7,14 +7,12 @@
 #include <assert.h>
 #include <limits.h>
 
-#include "log.h"
 #include "debug.h"
 #include "routing.h"
 #include "datagram.h"
 #include "compression.h"
 #include "transport_layer.h"
 
-char *zero_memory;
 //-----------------------------------------------------------------------------
 // statistics
 static uint64_t observed_packets = 0;
@@ -39,14 +37,6 @@ static int swin_size;
 //-----------------------------------------------------------------------------
 // initializes sliding window table
 static void init_sliding_window() {
-
-    char filename[] = "logsend___";
-    sprintf(filename+4, "%3d", nodeinfo.address);
-    filename[10] = '\0';
-    logfile_send = fopen(filename, "a");
-
-    zero_memory = (char*)malloc(MAX_MESSAGE_SIZE+PACKET_HEADER_SIZE);
-    memset(zero_memory, 0, MAX_MESSAGE_SIZE+PACKET_HEADER_SIZE);
     swin   = (sliding_window *)malloc(sizeof(sliding_window));
     swin_size  = 0;
 }
@@ -56,7 +46,6 @@ static void destroy_sliding_window() {
         queue_free(swin[i].fragment_queue);
     }
     free(swin);
-    free(zero_memory);
 }
 //-----------------------------------------------------------------------------
 // compression of payload
@@ -80,11 +69,8 @@ static int find_swin(CnetAddr address) {
         if(swin[t].address == address)
             return t;
 
-
     size_t new_size = (swin_size+1)*sizeof(sliding_window);
     swin = (sliding_window *)realloc((char *)swin, new_size);
-
-    swin[swin_size].messages_processed = 0;
 
     swin[swin_size].address = address;
 
@@ -155,17 +141,8 @@ static void reset_sender_window(int ack_mod, int table_ind) {
     }
     swin[table_ind].numacks[ack_mod] = 0;
     swin[table_ind].allackssarrived[ack_mod] = FALSE;
-    swin[table_ind].outlengths[ack_mod] = 0;
     if (swin[table_ind].timers[ack_mod] != NULLTIMER)
         CNET_stop_timer(swin[table_ind].timers[ack_mod]);
-
-    if (cnet_errno != ER_OK) {
-        CNET_perror("Stopping timer line 149 transport_layer.c:");
-        fprintf(stderr, "timer id: %d\n", swin[table_ind].timers[ack_mod]);
-        cnet_errno = ER_OK;
-        abort();
-    }
-
     swin[table_ind].timers[ack_mod] = NULLTIMER;
 }
 //-----------------------------------------------------------------------------
@@ -200,11 +177,6 @@ static void set_timeout(uint8_t dst, uint16_t pkt_len, PACKET pkt, int table_ind
         CnetData data = (dst << 8) | seqno;
         CnetTime timeout = 2*swin[table_ind].adaptive_timeout+4*swin[table_ind].adaptive_deviation;
         swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, timeout, data);
-
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Starting timer line 182 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
     }
 }
 //-----------------------------------------------------------------------------
@@ -215,13 +187,7 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
 
     // no need to send a separate ack
     if(swin[table_ind].separate_ack_timer != NULLTIMER)
-        CHECK(CNET_stop_timer(swin[table_ind].separate_ack_timer));
-
-    if (cnet_errno != ER_OK) {
-        CNET_perror("Stopping timer line 203 transport_layer.c");
-        cnet_errno = ER_OK;
-    }
-
+        CNET_stop_timer(swin[table_ind].separate_ack_timer);
     swin[table_ind].separate_ack_timer = NULLTIMER;
 
     // piggyback the acknowledgement
@@ -253,17 +219,6 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
         T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", pkt.seqno, pkt.segid, pkt_len-PACKET_HEADER_SIZE);
     }
 
-    fprintf(logfile_send, "send: src: %d dest: %d time: %u seq: %u seg: %u kind: ", nodeinfo.address, (unsigned)dst , (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
-
-    if(is_kind(kind,__ACK__))
-        fprintf(logfile_send,"ACK ");
-    if(is_kind(kind,__NACK__))
-        fprintf(logfile_send,"NACK ");
-    if(is_kind(kind,__DATA__))
-        fprintf(logfile_send,"DATA ");
-
-    fprintf(logfile_send,"\n");
-
     write_network(kind, dst, pkt_len, (char*)&pkt);
 }
 //-----------------------------------------------------------------------------
@@ -282,21 +237,13 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         // make sure that the path and mtu are discovered
         int mtu = get_mtu(frg->dest);
         if(mtu == -1) {
-             CHECK(CNET_disable_application(dest));
-
-             if (cnet_errno != ER_OK) {
-                 CNET_perror("App disable line 253 transport_layer.c");
-                 cnet_errno = ER_OK;
-             }
-
+             CNET_disable_application(dest);
              swin[table_ind].flush_queue_timer = NULLTIMER;
              return;
         }
         // if path is discovered and there is space in sliding window
         if (mtu != -1) {
             sent_messages++;
-
-            assert(swin[table_ind].nbuffered < (int)NRBUFS);
 
             // get the first packet in the queue
             int nf = swin[table_ind].nextframetosend % NRBUFS;
@@ -349,13 +296,8 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         }
     }
     // callback the flush_queue function
-    if (queue_nitems(swin[table_ind].fragment_queue) != 0) {
+    if (queue_nitems(swin[table_ind].fragment_queue) != 0)
         swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, dest);
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Start timer line 326 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
-    }
     else
         swin[table_ind].flush_queue_timer = NULLTIMER;
 }
@@ -373,6 +315,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         //int duplicate_ack = FALSE;
         CnetTime measured, curr_deviation, observed, difference;
         if (swin[table_ind].ackexpected != pkt.ackseqno) {
+            // handle adaptive timeout
             for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
                 if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE &&
                    swin[table_ind].retransmitted[ack_mod][i] == FALSE) {
@@ -391,7 +334,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     average_measured += swin[table_ind].adaptive_timeout;
                     average_observed += observed;
                     average_deviation += swin[table_ind].adaptive_deviation;
-                    assert(swin[table_ind].adaptive_timeout > 0);
+
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
                 swin[table_ind].arrivedacks[ack_mod][i] = TRUE;
@@ -416,8 +359,6 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     average_measured += swin[table_ind].adaptive_timeout;
                     average_observed += nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
                     average_deviation += swin[table_ind].adaptive_deviation;
-
-                    assert(swin[table_ind].adaptive_timeout > 0);
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
                 swin[table_ind].arrivedacks[ack_mod][i] = TRUE;
@@ -434,21 +375,13 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         // we have acked something so enable the application layer
         acked = TRUE;
 
-        memset((void*)&swin[table_ind].outpacket[ack_mod], 0, swin[table_ind].outlengths[ack_mod]);
-        assert(swin[table_ind].outlengths[ack_mod] > 0);
-
         // reset the variables for the next packet
         reset_sender_window(ack_mod, table_ind);
 
         inc(&(swin[table_ind].ackexpected));
     }
-    if (acked && queue_nitems(swin[table_ind].fragment_queue) < 10) {
+    if (acked && queue_nitems(swin[table_ind].fragment_queue) < 10)
         CHECK(CNET_enable_application(src));
-        if (cnet_errno != ER_OK) {
-            CNET_perror("App enable line 416 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
-    }
 }
 //-----------------------------------------------------------------------------
 void handle_nack(CnetAddr src, PACKET pkt, int table_ind) {
@@ -478,22 +411,16 @@ void handle_nack(CnetAddr src, PACKET pkt, int table_ind) {
 //    transmit_packet(frg_seg_kind, src, PACKET_HEADER_SIZE, frg);
     //CHECK(CNET_stop_timer(swin[table_ind].timers[seqno]));
 
-    if(swin[table_ind].timers[seqno] != NULLTIMER) {
+    if(swin[table_ind].timers[seqno] != NULLTIMER)
         CHECK(CNET_stop_timer(swin[table_ind].timers[seqno]));
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Stop timer line 452 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
-    }
 
     swin[table_ind].timers[seqno] = NULLTIMER;
+
+    swin[table_ind].adaptive_timeout /= 1.5;
 
     CnetEvent ev = -1;
     CnetTimerID ti = -1;
     CnetData data = (src << 8) | seqno;
-
-    swin[table_ind].adaptive_timeout /= 1.5;
-
     ack_timeout(ev, ti, data);
 }
 //-----------------------------------------------------------------------------
@@ -553,8 +480,6 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         swin[table_ind].inlengths[pkt_seqno_mod] += (length - PACKET_HEADER_SIZE);
     }
 
-    assert(swin[table_ind].arrived[pkt_seqno_mod] = FALSE);
-
     // find if all fragments arrived
     int prev_last_frag = swin[table_ind].lastfrag[pkt_seqno_mod];
     if (swin[table_ind].numfrags[pkt_seqno_mod] > 0) {
@@ -576,8 +501,6 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         int frameexpected_mod = swin[table_ind].frameexpected % NRBUFS;
         size_t len = swin[table_ind].inlengths[frameexpected_mod];
 
-        fprintf(logfile_send, "recv: src: %d dest: %d time: %u seq: %u\n", src, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)swin[table_ind].frameexpected);
-
         T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, swin[table_ind].frameexpected);
 
         // reset the variables for next packet
@@ -597,40 +520,15 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         }
         size_t nlen = new_len;
         // push the message to application layer
-        CNET_write_application((char*)in, &nlen);
-
-        swin[table_ind].messages_processed++;
-
-        memset(in, 0, IN_LEN);
-        memset(swin[table_ind].inpacket[frameexpected_mod].msg, 0, nlen);
-
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Write app line 564 transport_layer.c");
-            fprintf(stderr, "from: %d to: %d seqno: %d\n", swin[table_ind].address, nodeinfo.address, swin[table_ind].frameexpected);
-            fprintf(stderr, "processed: %d\n", swin[table_ind].messages_processed);
-            cnet_errno = ER_OK;
-            abort();
-        }
+        CHECK(CNET_write_application((char*)in, &nlen));
     }
 
     // start a separate ack timer
     if(arrived_frame == TRUE || prev_last_frag < swin[table_ind].lastfrag[pkt_seqno_mod]) {
-        if(swin[table_ind].separate_ack_timer != NULLTIMER) {
+        if(swin[table_ind].separate_ack_timer != NULLTIMER)
             CHECK(CNET_stop_timer(swin[table_ind].separate_ack_timer));
-            if (cnet_errno != ER_OK) {
-                CNET_perror("Stop timer line 575 transport_layer.c");
-                cnet_errno = ER_OK;
-            }
-        }
         swin[table_ind].separate_ack_timer = CNET_start_timer(EV_TIMER3, 100, src);
-
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Stop timer line 584 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
     }
-
-
 }
 //-----------------------------------------------------------------------------
 // called to handle an incoming packet from network layer. based on the type
@@ -692,18 +590,12 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     uint8_t seqno = (int) data & UCHAR_MAX;
     uint8_t seqno_mod = seqno % NRBUFS;
 
-    assert(between(swin[table_ind].ackexpected, seqno, swin[table_ind].nextframetosend));
-
-    assert(memcmp(zero_memory, swin[table_ind].outpacket[seqno_mod].msg,swin[table_ind].outlengths[seqno_mod]));
-
     // index of a sliding window
     int table_ind = find_swin((CnetAddr)((data >> 8) & UCHAR_MAX));
     swin[table_ind].timers[seqno_mod] = NULLTIMER;
 
     // Karn's algorithm
     swin[table_ind].adaptive_timeout *= 1.5;
-
-    assert(swin[table_ind].adaptive_timeout < (2LL << 32));
 
     // find out where to send and how to fragment
     int mtu = get_mtu(swin[table_ind].address);
@@ -714,8 +606,6 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 
     // total length of a packet
     int pkt_len = swin[table_ind].outlengths[seqno_mod];
-
-    assert(pkt_len > 0);
 
     // fragment timouted packet and transmit
     while (total_length < pkt_len) {
@@ -758,11 +648,6 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
     size_t len = frg.len;
     CHECK(CNET_read_application(&destaddr, in, &len));
 
-    if (cnet_errno != ER_OK) {
-        CNET_perror("Read app line 714 transport_layer.c");
-        cnet_errno = ER_OK;
-    }
-
     // compression
     lzo_uint in_len = len, out_len;
     int r = lzo1x_1_compress(in,in_len,(unsigned char *)frg.pkt.msg,&out_len,wrkmem);
@@ -770,8 +655,6 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
         fprintf(stderr,"internal error - compression failed: %d\n", r);
         abort();
     }
-
-    memset(in, 0, IN_LEN);
 
     // initialize a fragment
     frg.len = out_len;
@@ -784,21 +667,11 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 
     // find corresponding sliding window
     int table_ind = find_swin(destaddr);
-    if (++swin[table_ind].nbuffered == NRBUFS) {
+    if (++swin[table_ind].nbuffered == NRBUFS)
         CHECK(CNET_disable_application(destaddr));
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Disable app line 785 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
-    }
 
-    if(queue_nitems(swin[table_ind].fragment_queue) == 0) {
+    if(queue_nitems(swin[table_ind].fragment_queue) == 0)
         swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, destaddr);
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Start timer line 795 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
-    }
 
     size_t frg_len = FRAGMENT_HEADER_SIZE+PACKET_HEADER_SIZE+frg.len;
     queue_add(swin[table_ind].fragment_queue, &frg, frg_len);
@@ -830,41 +703,19 @@ void init_transport() {
     CHECK(CNET_set_handler( EV_TIMER3, separate_ack_timeout, 0));
     CHECK(CNET_set_handler( EV_SHUTDOWN, shutdown, 0));
     CHECK(CNET_set_handler( EV_APPLICATIONREADY, write_transport, 0));
-
-    if (cnet_errno != ER_OK) {
-        CNET_perror("Set handler timer line 785 transport_layer.c");
-        cnet_errno = ER_OK;
-    }
 }
 //-----------------------------------------------------------------------------
 void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
     if (sg == DISCOVERY_FINISHED) {
         T_DEBUG("Discovery finished\n");
-        CHECK(CNET_enable_application(ALLNODES));
-
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Enable app line 795 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
+        CNET_enable_application(ALLNODES);
     }
     if (sg == MTU_DISCOVERED) {
         uint8_t address = (uint8_t)data;
         int table_ind = find_swin(address);
         swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
-
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Start timer line 806 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
-
-        CHECK(CNET_enable_application(address));
-
-        if (cnet_errno != ER_OK) {
-            CNET_perror("Enable app line 813 transport_layer.c");
-            cnet_errno = ER_OK;
-        }
+        CNET_enable_application(address);
     }
 }
 //-----------------------------------------------------------------------------
-
 

@@ -89,13 +89,13 @@ void read_network(int link, size_t length, char * datagram) {
                 if ((CnetAddr)(dtg.dest) != nodeinfo.address) {
                     N_DEBUG("forwarding..\n");
 
-                    fprintf(logfile_forward, "src: %d dest: %d hop: %d time: %u seq: %u seg: %u\n", dtg.src, dtg.dest, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
+                    //fprintf(logfile_forward, "src: %d dest: %d hop: %d time: %u seq: %u seg: %u\n", dtg.src, dtg.dest, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
 
                     route(dtg);
                     packets_forwarded_total++;
 
 		} else {
-                    fprintf(logfile_forward, "src: %d dest: %d hop: %d time: %u seq: %u seg: %u\n", dtg.src, dtg.dest, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
+                    //fprintf(logfile_forward, "src: %d dest: %d hop: %d time: %u seq: %u seg: %u\n", dtg.src, dtg.dest, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
 
                     read_transport(dtg.kind, dtg.length, dtg.src, (char*)dtg.payload);
 		}
