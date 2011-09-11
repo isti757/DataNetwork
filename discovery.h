@@ -1,10 +1,3 @@
-/*
- * discovery.h
- *
- *  Created on: 02.08.2011
- *      Author: kirill
- */
-
 #ifndef DISCOVERY_H_
 #define DISCOVERY_H_
 
@@ -39,12 +32,14 @@ typedef struct {
 //-----------------------------------------------------------------------------
 extern void init_discovery();
 //-----------------------------------------------------------------------------
+//process a discovery packet
 extern void do_discovery(int, DATAGRAM dtg);
 //-----------------------------------------------------------------------------
 // poll our neighbors
 extern void pollNeighbors();
 //-----------------------------------------------------------------------------
-extern void timerHandler(CnetEvent, CnetTimerID, CnetData);
+// discovery timer event handler
+extern void discovery_timer_handler(CnetEvent, CnetTimerID, CnetData);
 //-----------------------------------------------------------------------------
 
 #endif /* DISCOVERY_H_ */

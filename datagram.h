@@ -38,17 +38,16 @@ static int is_kind(uint8_t kind, uint8_t knd) {
 }
 //-----------------------------------------------------------------------------
 // definition of datagram
-#define MAXFRAMESIZE MAX_MESSAGE_SIZE + 4
+#define MAXFRAMESIZE MAX_MESSAGE_SIZE + PACKET_HEADER_SIZE
 typedef struct {
     uint8_t src;       // source address
     uint8_t dest;      // destination address
     uint8_t kind;      // packet kind
     uint16_t length;   // length of payload
-    uint32_t checksum; // checksum of entire datagram
     char payload[MAXFRAMESIZE];
 } __attribute__((packed)) DATAGRAM;
 
-#define DATAGRAM_HEADER_SIZE  (3*sizeof(uint8_t)+sizeof(uint16_t)+sizeof(uint32_t))
+#define DATAGRAM_HEADER_SIZE  (3*sizeof(uint8_t)+sizeof(uint16_t))
 #define DATAGRAM_SIZE(d)      (DATAGRAM_HEADER_SIZE + d.length)
 //-----------------------------------------------------------------------------
 

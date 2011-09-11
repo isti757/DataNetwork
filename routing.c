@@ -1,12 +1,7 @@
-/*
- * routing.c
- *
- *  Created on: 02.08.2011
- *      Author: kirill
- */
 #include <unistd.h>
 
 #include "routing.h"
+#include "dl_frame.h"
 
 //-----------------------------------------------------------------------------
 // the routing table
@@ -296,7 +291,7 @@ void send_route_request(CnetAddr destaddr, int time_to_live) {
 int get_mtu(CnetAddr address) {
     if (route_exists(address) == 1) {
         int t = find_address(address);
-        return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE;
+        return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE - DL_FRAME_HEADER_SIZE;
     } else {
         send_route_request(address,1);
         return -1;

@@ -16,7 +16,7 @@ static int response_status[MAX_LINKS_COUNT];
 // initialize discovery protocol
 void init_discovery() {
     // establish the timer event handler
-    CHECK(CNET_set_handler(EV_DISCOVERY_TIMER, timerHandler, 0));
+    CHECK(CNET_set_handler(EV_DISCOVERY_TIMER, discovery_timer_handler, 0));
 
     // initialize the response status
     for (int i = 1; i <= nodeinfo.nlinks; i++)
@@ -71,7 +71,7 @@ void pollNeighbor(int link) {
 }
 //-----------------------------------------------------------------------------
 // discovery timer event handler
-void timerHandler(CnetEvent ev, CnetTimerID timer, CnetData data) {
+void discovery_timer_handler(CnetEvent ev, CnetTimerID timer, CnetData data) {
     switch ((int) data) {
     case POLLTIMER:
         // time to poll neighbors again

@@ -25,20 +25,27 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
     //read a datagram from the datalink layer
     int link;
     DL_FRAME frame;
-    size_t len = sizeof(DATAGRAM) + 2*MAX_MESSAGE_SIZE;
+    size_t len = DATAGRAM_HEADER_SIZE + DL_FRAME_HEADER_SIZE + 2*MAX_MESSAGE_SIZE;
     CHECK(CNET_read_physical(&link, (char *)&frame, &len));
-    D_DEBUG1("We received on datalink %d bytes\n", len);
-
+    uint32_t checksum = frame.checksum;
+    D_DEBUG3("We received on link %d %d bytes checksum=%lu\n",link ,len,checksum);
+    size_t dtg_len = len - DL_FRAME_HEADER_SIZE;
+    uint32_t checksum_to_compare = CNET_crc32((unsigned char *)&frame.data, dtg_len);
+    if (checksum_to_compare != checksum) {
+        D_DEBUG("BAD checksum - ignored\n");
+        return; // bad checksum, ignore frame
+    }
     // a datagram to network layer
-    read_network(link, len, (char*) frame.data);
+    read_network(link, dtg_len, (char*) frame.data);
 }
 //-----------------------------------------------------------------------------
 // write a frame to the link
-void write_datalink(int link, char *datagram, uint32_t length) {
-    D_DEBUG1("Written to datalink queue %d\n", length);
+void write_datalink(int link, char *datagram, uint32_t checksum, uint32_t length) {
+    D_DEBUG2("Written to datalink queue %d checksum %lu\n", length,checksum);
     DTG_CONTAINER container;
     container.len = length;
     container.link = link;
+    container.checksum = checksum;
 
     size_t datagram_length = length;
     memcpy(&container.data, datagram, datagram_length);
@@ -68,17 +75,15 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         DL_FRAME frame;
         int link = dtg_container->link;
         size_t datagram_length = dtg_container->len;
+        frame.checksum = dtg_container->checksum;
+        D_DEBUG3("Flushed to link %d %d bytes checksum %lu\n",link,datagram_length,frame.checksum);
         memcpy(&frame.data, dtg_container->data, datagram_length);
-        /*if (linkinfo[link].mtu < datagram_length) {
-        	DATAGRAM dtg;
-        	memcpy(&dtg,&frame.data,datagram_length);
-        	fprintf(stderr, "Node:%d, mtu:%d, datagram to:%d, from: %d, decl.mtu:%d,length: %d\n", nodeinfo.address,linkinfo[link].mtu,dtg.dest,dtg.src,dtg.declared_mtu,datagram_length);
-        }*/
-        CHECK(CNET_write_physical(link, (char *)&frame, &datagram_length));
+        size_t frame_length = datagram_length + DL_FRAME_HEADER_SIZE;
+        CHECK(CNET_write_physical(link, (char *)&frame, &frame_length));
 
         //compute timeout for the link
         double bandwidth = linkinfo[link].bandwidth;
-        CnetTime timeout = 1+8000005.0*(datagram_length / bandwidth);
+        CnetTime timeout = 1+8000005.0*(frame_length / bandwidth);
         datalink_timers[link] = CNET_start_timer(EV_DATALINK_FLUSH, timeout, current_link);
         free((DTG_CONTAINER*) dtg_container);
     } else {
