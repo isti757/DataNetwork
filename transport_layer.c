@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <limits.h>
 
+#include "log.h"
 #include "debug.h"
 #include "routing.h"
 #include "datagram.h"
@@ -36,7 +37,6 @@ CnetTimerID flush_queue_timer = NULLTIMER;
 static sliding_window *swin;
 static int swin_size;
 //-----------------------------------------------------------------------------
-FILE *swin_dump_file;
 static void dump_sliding_window() {
 
     char filename [] = "swinlog";
@@ -148,11 +148,16 @@ static void dump_sliding_window() {
 //-----------------------------------------------------------------------------
 // initializes sliding window table
 static void init_sliding_window() {
+    char filename [] = "sendrecvlog";
+    sprintf(filename+8, "%3d", nodeinfo.address);
+    logfile_send_receive = fopen(filename, "a");
+
     swin   = (sliding_window *)malloc(sizeof(sliding_window));
     swin_size  = 0;
 }
 //-----------------------------------------------------------------------------
 static void destroy_sliding_window() {
+    fclose(logfile_send_receive);
     for(int i = 0; i < swin_size; i++) {
         queue_free(swin[i].fragment_queue);
     }
@@ -301,6 +306,7 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
         CNET_stop_timer(swin[table_ind].separate_ack_timer);
     swin[table_ind].separate_ack_timer = NULLTIMER;
 
+
     // piggyback the acknowledgement
     int last_pkt_ind = swin[table_ind].frameexpected;
     if(swin[table_ind].lastfrag[last_pkt_ind % NRBUFS] == -1) {
@@ -309,11 +315,31 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
             kind |= __ACK__;
             pkt.ackseqno = last_pkt_ind;
             pkt.acksegid = swin[table_ind].lastfullfragment;
+
+            volatile int cpy_ack_seqno = pkt.ackseqno;
+            assert(cpy_ack_seqno == last_pkt_ind);
+            assert(swin[table_ind].lastfullfragment >= -1);
+            assert(swin[table_ind].lastfullfragment < MAXFR);
+
+            volatile int cpy_last_fr = pkt.acksegid;
+            assert(swin[table_ind].lastfullfragment == cpy_last_fr);
+
+            cpy_ack_seqno = 0; cpy_last_fr = 0;
         }
     } else {
         kind |= __ACK__;
         pkt.ackseqno = last_pkt_ind;
         pkt.acksegid = swin[table_ind].lastfrag[last_pkt_ind % NRBUFS];
+
+        volatile int cpy_ack_seqno = pkt.ackseqno;
+        assert(cpy_ack_seqno == last_pkt_ind);
+
+        assert(swin[table_ind].lastfullfragment < MAXFR);
+
+        volatile int cpy_last_fr = pkt.acksegid;
+        assert(swin[table_ind].lastfullfragment == cpy_last_fr);
+
+        cpy_ack_seqno = 0; cpy_last_fr = 0;
     }
 
     if (is_kind(kind, __ACK__)) {
@@ -329,6 +355,19 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
         set_timeout(dst, pkt_len, pkt, table_ind);
         T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", pkt.seqno, pkt.segid, pkt_len-PACKET_HEADER_SIZE);
     }
+
+    fprintf(logfile_send_receive, "send: src: %d dest: %d time: %u seq: %u seg: %u kind: ", nodeinfo.address, (unsigned)dst , (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
+
+    if(is_kind(kind,__ACK__))
+       fprintf(logfile_send_receive,"ACK ");
+
+    if(is_kind(kind,__NACK__))
+        fprintf(logfile_send_receive,"NACK ");
+
+    if(is_kind(kind,__DATA__))
+        fprintf(logfile_send_receive,"DATA ");
+
+    fprintf(logfile_send_receive,"\n");
 
     write_network(kind, dst, pkt_len, (char*)&pkt);
 }
@@ -622,12 +661,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
 
         T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, swin[table_ind].frameexpected);
 
-        // reset the variables for next packet
-        reset_receiver_window(frameexpected_mod, table_ind);
-
-        // shift sliding window
-        inc(&(swin[table_ind].frameexpected));
-        inc(&(swin[table_ind].toofar));
+        fprintf(logfile_send_receive, "recv: src: %d dest: %d time: %u seq: %u\n", src, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno);
 
         lzo_uint new_len = len, out_len = len;
         int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
@@ -654,6 +688,13 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
             dump_sliding_window();
             CNET_exit("transport layer", "write app", 654);
         }
+
+        // reset the variables for next packet
+        reset_receiver_window(frameexpected_mod, table_ind);
+
+        // shift sliding window
+        inc(&(swin[table_ind].frameexpected));
+        inc(&(swin[table_ind].toofar));
 
         reported_messages++;
     }

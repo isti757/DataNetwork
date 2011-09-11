@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-//FILE *logfile_forward;
-//FILE *logfile_send;
+FILE *logfile_send_receive;
+FILE *swin_dump_file;
 
 #endif // LOG_H
