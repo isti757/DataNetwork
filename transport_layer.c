@@ -114,7 +114,7 @@ static void dump_sliding_window() {
         fprintf(swin_dump_file, "timesent: \n");
         for (int b = 0; b < NRBUFS; b++) {
         for (int f = 0; f < MAXFR; f++) {
-            fprintf(swin_dump_file,"%lld ", swin[t].timesent[b][f]);
+            fprintf(swin_dump_file,"%ld ", swin[t].timesent[b][f]);
         }
         fprintf(swin_dump_file, "\n");
         }
@@ -356,7 +356,7 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
         T_DEBUG3("i\t\tDATA transmitted seq: %d seg: %d len: %d\n", pkt.seqno, pkt.segid, pkt_len-PACKET_HEADER_SIZE);
     }
 
-    fprintf(logfile_send_receive, "send: src: %d dest: %d time: %u seq: %u seg: %u kind: ", nodeinfo.address, (unsigned)dst , (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
+    fprintf(logfile_send_receive, "send: src: %d dest: %d time: %u seq: %u seg: %u ackseqno: %u acksegid: %u kind: ", nodeinfo.address, (unsigned)dst , (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid, (unsigned)pkt.ackseqno, (unsigned)pkt.acksegid);
 
     if(swin[table_ind].retransmitted[pkt.seqno % NRBUFS][pkt.segid])
         fprintf(logfile_send_receive,"RETR ");
