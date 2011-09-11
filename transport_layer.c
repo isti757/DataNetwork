@@ -114,7 +114,7 @@ static void dump_sliding_window() {
         fprintf(swin_dump_file, "timesent: \n");
         for (int b = 0; b < NRBUFS; b++) {
         for (int f = 0; f < MAXFR; f++) {
-            fprintf(swin_dump_file,"%ld ", swin[t].timesent[b][f]);
+            fprintf(swin_dump_file,"%lld ", swin[t].timesent[b][f]);
         }
         fprintf(swin_dump_file, "\n");
         }
