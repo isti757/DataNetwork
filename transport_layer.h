@@ -20,7 +20,7 @@
 #define MAXFR       (MAX_MESSAGE_SIZE+MAXPL)/MAXPL
 // sliding window
 #define NBITS       4
-#define MAXSEQ      63 //((1<<NBITS)-1)
+#define MAXSEQ      255 //((1<<NBITS)-1)
 #define NRBUFS      (1<<(NBITS-1))
 // boolean variable
 #define FALSE       0

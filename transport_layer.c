@@ -358,6 +358,9 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
 
     fprintf(logfile_send_receive, "send: src: %d dest: %d time: %u seq: %u seg: %u kind: ", nodeinfo.address, (unsigned)dst , (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid);
 
+    if(swin[table_ind].retransmitted[pkt.seqno % NRBUFS][pkt.segid])
+        fprintf(logfile_send_receive,"RETR ");
+
     if(is_kind(kind,__ACK__))
        fprintf(logfile_send_receive,"ACK ");
 
@@ -661,7 +664,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
 
         T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, swin[table_ind].frameexpected);
 
-        fprintf(logfile_send_receive, "recv: src: %d dest: %d time: %u seq: %u\n", src, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno);
+        fprintf(logfile_send_receive, "recv: src: %d dest: %d time: %u seq: %u\n", src, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)swin[table_ind].frameexpected);
 
         lzo_uint new_len = len, out_len = len;
         int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
