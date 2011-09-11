@@ -15,6 +15,7 @@
 
 //-----------------------------------------------------------------------------
 // statistics
+static int reported_messages = 0;
 static uint64_t observed_packets = 0;
 static uint64_t nacks_handled = 0;
 static uint64_t nack_received = 0;
@@ -34,6 +35,116 @@ CnetTimerID flush_queue_timer = NULLTIMER;
 // a table of sliding windows
 static sliding_window *swin;
 static int swin_size;
+//-----------------------------------------------------------------------------
+FILE *swin_dump_file;
+static void dump_sliding_window() {
+
+    char filename [] = "swinlog";
+    sprintf(filename+4, "%3d", nodeinfo.address);
+    swin_dump_file = fopen(filename, "a");
+
+    for(int t = 0; t < swin_size ; t++) {
+        fprintf(swin_dump_file, "------------------------------------------\n");
+        fprintf(swin_dump_file, "address: %d\n", swin[t].address);
+
+        // sliding window
+        fprintf(swin_dump_file, "nbuffered: %d\n", swin[t].nbuffered);
+        fprintf(swin_dump_file, "ackexpected: %d\n", swin[t].ackexpected);
+        fprintf(swin_dump_file, "nextframeexpected: %d\n", swin[t].nextframetosend);
+        fprintf(swin_dump_file, "toofar: %d\n", swin[t].toofar);
+        fprintf(swin_dump_file, "noack: %d\n", swin[t].nonack);
+        fprintf(swin_dump_file, "frameextected: %d\n", swin[t].frameexpected);
+        fprintf(swin_dump_file, "lastfullfragment: %d\n", swin[t].lastfullfragment);
+
+        fprintf(swin_dump_file, "buffer index: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+            // sliding window
+            fprintf(swin_dump_file,"%2d ", b);
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "arrived: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+            // sliding window
+            fprintf(swin_dump_file,"%2d ", swin[t].arrived[b]);
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "allacksarrived: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+            // fragmentation variables
+            fprintf(swin_dump_file,"%2u ", swin[t].allackssarrived[b]);
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "numfrags: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+            fprintf(swin_dump_file,"%2u ", swin[t].numfrags[b]);
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "numacks: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+            fprintf(swin_dump_file,"%2u ", swin[t].numacks[b]);
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "mtusize: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+            fprintf(swin_dump_file,"%u ",swin[t].mtusize[b]);
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "lastfrag: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+            fprintf(swin_dump_file,"%2d ",swin[t].lastfrag[b]);
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "retransmitted: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+        for (int f = 0; f < MAXFR; f++) {
+            // adaptive timeout management
+            fprintf(swin_dump_file,"%2d ", swin[t].retransmitted[b][f]);
+        }
+        fprintf(swin_dump_file, "\n");
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "timesent: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+        for (int f = 0; f < MAXFR; f++) {
+            fprintf(swin_dump_file,"%ld ", swin[t].timesent[b][f]);
+        }
+        fprintf(swin_dump_file, "\n");
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "arrivedacks: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+        for (int f = 0; f < MAXFR; f++) {
+            // marks arrived acks and fragments
+            fprintf(swin_dump_file,"%2u ",swin[t].arrivedacks[b][f]);
+        }
+        fprintf(swin_dump_file, "\n");
+        }
+        fprintf(swin_dump_file, "\n");
+
+
+        fprintf(swin_dump_file, "arrivedfrags: \n");
+        for (int b = 0; b < NRBUFS; b++) {
+        for (int f = 0; f < MAXFR; f++) {
+            fprintf(swin_dump_file,"%2u ",swin[t].arrivedfrags[b][f]);
+        }
+        fprintf(swin_dump_file, "\n");
+        }
+        fprintf(swin_dump_file, "\n");
+
+        fprintf(swin_dump_file, "------------------------------------------\n");
+    }
+
+    fclose(swin_dump_file);
+}
 //-----------------------------------------------------------------------------
 // initializes sliding window table
 static void init_sliding_window() {
@@ -460,11 +571,14 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
     int lastmsg = is_kind(kind, __LASTSGM__);
     if (lastmsg == 0) {
         swin[table_ind].mtusize[pkt_seqno_mod] = length-PACKET_HEADER_SIZE;
+        assert(length > PACKET_HEADER_SIZE);
     }
     if(lastmsg == 1) {
         swin[table_ind].numfrags[pkt_seqno_mod] = pkt.segid + 1;
+        assert( swin[table_ind].numfrags[pkt_seqno_mod] == (int)(pkt.segid + 1));
         if (pkt.segid == 0) {
             swin[table_ind].mtusize[pkt_seqno_mod] = length-PACKET_HEADER_SIZE;
+            assert(length > PACKET_HEADER_SIZE);
         }
     }
 
@@ -527,15 +641,21 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         // push the message to application layer
         CNET_write_application((char*)in, &nlen);
         if(cnet_errno != ER_OK) {
-            fprintf(stderr, "carefull, too far and frameexpected are incremented!!!\n");
             CNET_perror("Write app: ");
+            fprintf(stderr, "reported messages: %d\n", reported_messages);
             fprintf(stderr, "from %d to %d seq: %d\n", src, nodeinfo.address, frameexpected_mod);
             fprintf(stderr, "frameexpected: %d\n", swin[table_ind].frameexpected);
             fprintf(stderr, "toofar: %d\n", swin[table_ind].toofar);
             fprintf(stderr, "frameexpected_mod: %d\n", frameexpected_mod);
-            fprintf(stderr, "NRBUFS: %d %u", NRBUFS, NRBUFS);
-            abort();
+            fprintf(stderr, "NRBUFS: %d %u %lu\n", (int)NRBUFS, (unsigned)NRBUFS, (long unsigned int)NRBUFS);
+            fprintf(stderr, "MAXFR: %d %u\n", (int)((int)MAXFR), (unsigned)((unsigned)MAXFR));
+            fprintf(stderr, "MAXSEQ: %d %u\n", (int)MAXSEQ, (unsigned)MAXSEQ);
+            fprintf(stderr, "MAXPL: %d %u\n", (int)MAXPL, (unsigned)MAXPL);
+            dump_sliding_window();
+            CNET_exit("transport layer", "write app", 654);
         }
+
+        reported_messages++;
     }
 
     // start a separate ack timer
