@@ -14,14 +14,14 @@
 
 //-----------------------------------------------------------------------------
 typedef struct {
-    uint8_t seqno;    // datagram sequence number
-    uint8_t segid;    // segment sequence number
-    uint8_t ackseqno; // piggybacked ack sequence number
-    uint8_t acksegid; // piggybacked ack segment number
+    uint8_t segid;     // segment sequence number
+    uint8_t acksegid;  // piggybacked ack segment number
+    uint16_t seqno;    // packet sequence number
+    uint16_t ackseqno; // piggybacked ack sequence number
     char msg[MAX_MESSAGE_SIZE];
 } __attribute__((packed)) PACKET;
 
-#define PACKET_HEADER_SIZE 4*sizeof(uint8_t)
+#define PACKET_HEADER_SIZE (2*sizeof(uint8_t)+2*sizeof(uint16_t))
 //-----------------------------------------------------------------------------
 
 #endif /* PACKET_H_ */

@@ -8,6 +8,7 @@
 #ifndef TRANSPORT_LAYER_H_
 #define TRANSPORT_LAYER_H_
 
+#include <limits.h>
 #include <string.h>
 
 #include "packet.h"
@@ -20,7 +21,7 @@
 #define MAXFR       (MAX_MESSAGE_SIZE+MAXPL)/MAXPL
 // sliding window
 #define NBITS       4
-#define MAXSEQ      255 //((1<<NBITS)-1)
+#define MAXSEQ      65535 //USHRT_MAX
 #define NRBUFS      (1<<(NBITS-1))
 // boolean variable
 #define FALSE       0
@@ -78,7 +79,7 @@ extern void init_transport();
 extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write incoming message from network to transport
-extern void read_transport(uint8_t kind,uint16_t length,CnetAddr source,char * packet);
+extern void read_transport(uint8_t kind, uint16_t length, CnetAddr source, char * packet);
 //-----------------------------------------------------------------------------
 extern void signal_transport(SIGNALKIND sg, SIGNALDATA data);
 //-----------------------------------------------------------------------------

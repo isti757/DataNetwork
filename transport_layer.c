@@ -277,7 +277,7 @@ static void reset_receiver_window(int frameexpected_mod, int table_ind) {
 }
 //-----------------------------------------------------------------------------
 static void set_timeout(uint8_t dst, uint16_t pkt_len, PACKET pkt, int table_ind) {
-    uint8_t seqno = pkt.seqno % NRBUFS;
+    uint16_t seqno = pkt.seqno % NRBUFS;
 
     // figure out where to send
     int link = get_next_link_for_dest(dst);
@@ -290,7 +290,7 @@ static void set_timeout(uint8_t dst, uint16_t pkt_len, PACKET pkt, int table_ind
     }
     // set timeout based on first fragment only
     if (swin[table_ind].timers[seqno] == NULLTIMER) {
-        CnetData data = (dst << 8) | seqno;
+        CnetData data = (dst << 16) | seqno;
         CnetTime timeout = 2*swin[table_ind].adaptive_timeout+4*swin[table_ind].adaptive_deviation;
         swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, timeout, data);
     }
@@ -305,7 +305,6 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
     if(swin[table_ind].separate_ack_timer != NULLTIMER)
         CNET_stop_timer(swin[table_ind].separate_ack_timer);
     swin[table_ind].separate_ack_timer = NULLTIMER;
-
 
     // piggyback the acknowledgement
     int last_pkt_ind = swin[table_ind].frameexpected;
@@ -358,7 +357,7 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
 
     fprintf(logfile_send_receive, "send: src: %d dest: %d time: %u seq: %u seg: %u ackseqno: %u acksegid: %u kind: ", nodeinfo.address, (unsigned)dst , (unsigned)(nodeinfo.time_in_usec), (unsigned)pkt.seqno, (unsigned)pkt.segid, (unsigned)pkt.ackseqno, (unsigned)pkt.acksegid);
 
-    if(swin[table_ind].retransmitted[pkt.seqno % NRBUFS][pkt.segid])
+    if(swin[table_ind].retransmitted[pkt.seqno % NRBUFS][pkt.segid] && is_kind(kind,__DATA__))
         fprintf(logfile_send_receive,"RETR ");
 
     if(is_kind(kind,__ACK__))
@@ -539,7 +538,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
 //-----------------------------------------------------------------------------
 void handle_nack(CnetAddr src, PACKET pkt, int table_ind) {
     nacks_handled++;
-    uint8_t seqno = swin[table_ind].ackexpected % NRBUFS;
+    uint16_t seqno = swin[table_ind].ackexpected % NRBUFS;
 
 //    int mtu = get_mtu(src);
 //    uint32_t total_length = (pkt.segid+1) * mtu;
@@ -573,7 +572,7 @@ void handle_nack(CnetAddr src, PACKET pkt, int table_ind) {
 
     CnetEvent ev = -1;
     CnetTimerID ti = -1;
-    CnetData data = (src << 8) | seqno;
+    CnetData data = (src << 16) | seqno;
     ack_timeout(ev, ti, data);
 }
 //-----------------------------------------------------------------------------
@@ -766,11 +765,11 @@ void separate_ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
    packets_retransmitted_total++;
 
-    uint8_t seqno = (int) data & UCHAR_MAX;
-    uint8_t seqno_mod = seqno % NRBUFS;
+    uint16_t seqno = (int) data & UCHAR_MAX;
+    uint16_t seqno_mod = seqno % NRBUFS;
 
     // index of a sliding window
-    int table_ind = find_swin((CnetAddr)((data >> 8) & UCHAR_MAX));
+    int table_ind = find_swin((CnetAddr)((data >> 16) & UCHAR_MAX));
     swin[table_ind].timers[seqno_mod] = NULLTIMER;
 
     // Karn's algorithm
