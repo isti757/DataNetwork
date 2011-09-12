@@ -641,7 +641,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
         swin[table_ind].arrivedfrags[pkt_seqno_mod][pkt.segid] = TRUE;
 
         size_t mess_len = length-PACKET_HEADER_SIZE;
-        uint32_t offset = swin[table_ind].mtusize[pkt_seqno_mod]*pkt.segid;
+        uint64_t offset = swin[table_ind].mtusize[pkt_seqno_mod]*pkt.segid;
         memcpy((char*) swin[table_ind].inpacket[pkt_seqno_mod].msg+offset, (char*) pkt.msg, mess_len);
 
         swin[table_ind].inlengths[pkt_seqno_mod] += (length - PACKET_HEADER_SIZE);
@@ -717,7 +717,7 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
     if(arrived_frame == TRUE || prev_last_frag < swin[table_ind].lastfrag[pkt_seqno_mod]) {
         if(swin[table_ind].separate_ack_timer != NULLTIMER)
             CHECK(CNET_stop_timer(swin[table_ind].separate_ack_timer));
-        swin[table_ind].separate_ack_timer = CNET_start_timer(EV_TIMER3, 100, src);
+        swin[table_ind].separate_ack_timer = CNET_start_timer(EV_TIMER3, 1000, src);
     }
 }
 //-----------------------------------------------------------------------------

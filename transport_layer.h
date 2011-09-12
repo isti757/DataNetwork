@@ -18,7 +18,7 @@
 //-----------------------------------------------------------------------------
 // fragmentation
 #define MAXPL       (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
-#define MAXFR       (MAX_MESSAGE_SIZE+MAXPL)/MAXPL
+#define MAXFR       (12240+MAXPL)/MAXPL
 // sliding window
 #define NBITS       4
 #define MAXSEQ      65535 //USHRT_MAX
