@@ -11,7 +11,7 @@
 #include "debug.h"
 #include "routing.h"
 #include "datagram.h"
-#include "compression.h"
+//#include "compression.h"
 #include "transport_layer.h"
 
 //-----------------------------------------------------------------------------
@@ -166,16 +166,16 @@ static void destroy_sliding_window() {
 //-----------------------------------------------------------------------------
 // compression of payload
 static void init_compression() {
-    in = malloc(sizeof(unsigned char)*IN_LEN);
+    //in = malloc(sizeof(unsigned char)*IN_LEN);
     // init compression
-    if (lzo_init() != LZO_E_OK) {
-        fprintf(stderr, "internal error - lzo_init() failed !!!\n");
-        abort();
-    }
+//    if (lzo_init() != LZO_E_OK) {
+//        fprintf(stderr, "internal error - lzo_init() failed !!!\n");
+//        abort();
+//    }
 }
 //-----------------------------------------------------------------------------
 static void destroy_compression() {
-    free(in);
+    //free(in);
 }
 //-----------------------------------------------------------------------------
 // finds a sliding window for the corresponding address and returns a
@@ -310,18 +310,25 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
     int last_pkt_ind = swin[table_ind].frameexpected;
     if(swin[table_ind].lastfrag[last_pkt_ind % NRBUFS] == -1) {
         last_pkt_ind = (last_pkt_ind+MAXSEQ) % (MAXSEQ+1);
-        if(swin[table_ind].lastfullfragment != -1) {
+        if(swin[table_ind].lastfullfragment > -1) {
             kind |= __ACK__;
             pkt.ackseqno = last_pkt_ind;
             pkt.acksegid = swin[table_ind].lastfullfragment;
 
-            volatile int cpy_ack_seqno = pkt.ackseqno;
+            int cpy_ack_seqno = pkt.ackseqno;
             assert(cpy_ack_seqno == last_pkt_ind);
             assert(swin[table_ind].lastfullfragment >= -1);
-            assert(swin[table_ind].lastfullfragment < MAXFR);
 
-            volatile int cpy_last_fr = pkt.acksegid;
+            if(swin[table_ind].lastfullfragment >= MAXFR) {
+                fprintf(stderr, "%d %lu\n", swin[table_ind].lastfullfragment, MAXFR);
+                assert(swin[table_ind].lastfullfragment < MAXFR);
+            }
+            int cpy_last_fr = pkt.acksegid;
             assert(swin[table_ind].lastfullfragment == cpy_last_fr);
+            if(swin[table_ind].lastfullfragment != cpy_last_fr) {
+                fprintf(stderr, "%d %d\n", swin[table_ind].lastfullfragment, cpy_last_fr);
+                assert(swin[table_ind].lastfullfragment == cpy_last_fr);
+            }
 
             cpy_ack_seqno = 0; cpy_last_fr = 0;
         }
@@ -330,15 +337,20 @@ void transmit_packet(uint8_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt) {
         pkt.ackseqno = last_pkt_ind;
         pkt.acksegid = swin[table_ind].lastfrag[last_pkt_ind % NRBUFS];
 
-        volatile int cpy_ack_seqno = pkt.ackseqno;
-        assert(cpy_ack_seqno == last_pkt_ind);
+//        int cpy_ack_seqno = pkt.ackseqno;
+//        assert(cpy_ack_seqno == last_pkt_ind);
 
-        assert(swin[table_ind].lastfullfragment < MAXFR);
+//        if(swin[table_ind].lastfullfragment >= MAXFR) {
+//            fprintf(stderr, "%d %lu\n", swin[table_ind].lastfullfragment, MAXFR);
+//            assert(swin[table_ind].lastfullfragment < MAXFR);
+//        }
 
-        volatile int cpy_last_fr = pkt.acksegid;
-        assert(swin[table_ind].lastfullfragment == cpy_last_fr);
-
-        cpy_ack_seqno = 0; cpy_last_fr = 0;
+//        int cpy_last_fr = pkt.acksegid;
+//        if(swin[table_ind].lastfullfragment != cpy_last_fr) {
+//            fprintf(stderr, "%d %d\n", swin[table_ind].lastfullfragment, cpy_last_fr);
+//            assert(swin[table_ind].lastfullfragment == cpy_last_fr);
+//        }
+//        cpy_ack_seqno = 0; cpy_last_fr = 0;
     }
 
     if (is_kind(kind, __ACK__)) {
@@ -665,17 +677,17 @@ void handle_data(uint8_t kind, uint16_t length, CnetAddr src, PACKET pkt, int ta
 
         fprintf(logfile_send_receive, "recv: src: %d dest: %d time: %u seq: %u\n", src, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)swin[table_ind].frameexpected);
 
-        lzo_uint new_len = len, out_len = len;
-        int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
-                                 out_len,in,&new_len,NULL);
-        if (r != LZO_E_OK) {
-            // this should NEVER happen
-            fprintf(stderr,"internal error - decompression failed: %d\n", r);
-            abort();
-        }
-        size_t nlen = new_len;
+//        lzo_uint new_len = len, out_len = len;
+//        int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
+//                                 out_len,in,&new_len,NULL);
+//        if (r != LZO_E_OK) {
+//            // this should NEVER happen
+//            fprintf(stderr,"internal error - decompression failed: %d\n", r);
+//            abort();
+//        }
+//        size_t nlen = new_len;
         // push the message to application layer
-        CNET_write_application((char*)in, &nlen);
+        CNET_write_application((char*)swin[table_ind].inpacket[frameexpected_mod].msg, &len);
         if(cnet_errno != ER_OK) {
             CNET_perror("Write app: ");
             fprintf(stderr, "reported messages: %d\n", reported_messages);
@@ -824,18 +836,18 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
     frg.len = MAX_MESSAGE_SIZE;
 
     size_t len = frg.len;
-    CHECK(CNET_read_application(&destaddr, in, &len));
+    CHECK(CNET_read_application(&destaddr, frg.pkt.msg, &len));
 
-    // compression
-    lzo_uint in_len = len, out_len;
-    int r = lzo1x_1_compress(in,in_len,(unsigned char *)frg.pkt.msg,&out_len,wrkmem);
-    if (r != LZO_E_OK) {
-        fprintf(stderr,"internal error - compression failed: %d\n", r);
-        abort();
-    }
+//    // compression
+//    lzo_uint in_len = len, out_len;
+//    int r = lzo1x_1_compress(in,in_len,(unsigned char *)frg.pkt.msg,&out_len,wrkmem);
+//    if (r != LZO_E_OK) {
+//        fprintf(stderr,"internal error - compression failed: %d\n", r);
+//        abort();
+//    }
 
     // initialize a fragment
-    frg.len = out_len;
+    frg.len = len;
     frg.kind = __DATA__;
     frg.dest = destaddr;
     frg.pkt.seqno = -1;
