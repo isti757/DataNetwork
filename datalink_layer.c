@@ -106,6 +106,23 @@ void init_datalink() {
 void shutdown_datalink() {
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
         fprintf(stderr, "\tlink %d - datalink queue: %d packets\n", i, queue_nitems(output_queues[i]));
+        if(queue_nitems(output_queues[i]) > 1000) {
+            char filename [] = "datalink___";
+            sprintf(filename+8, "%3d", nodeinfo.address);
+            FILE* datalink_file = fopen(filename, "a");
+
+            while(queue_nitems(output_queues[i]) != 0) {
+                size_t containter_len;
+                DTG_CONTAINER * dtg_container = queue_remove(output_queues[i], &containter_len);
+                DATAGRAM dtgr; size_t len = dtg_container->len;
+                memcpy(&dtgr, dtg_container->data, len);
+                fprintf(datalink_file, "src: %u dest: %u len: %d kind: %u\n", dtgr.src, dtgr.dest, dtgr.length, dtgr.kind);
+
+                free(dtg_container);
+            }
+
+            fclose(datalink_file);
+        }
         queue_free(output_queues[i]);
     }
 }

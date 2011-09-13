@@ -16,6 +16,12 @@
 #include "network_layer.h"
 
 //-----------------------------------------------------------------------------
+// custom types
+typedef int16_t  swin_frag_ind_t;    // maximum fragment segid is < 200
+typedef uint8_t  swin_frag_count_t;  // maximum fragment count >= 0
+typedef int16_t  swin_mtu_t;         // maximum mtu is < 65535
+typedef uint8_t  swin_bool_t;        // boolean type
+//-----------------------------------------------------------------------------
 // fragmentation
 #define MAXPL       (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
 #define MAXFR       (12240+MAXPL)/MAXPL
@@ -27,8 +33,13 @@
 #define FALSE       0
 #define TRUE        1
 //-----------------------------------------------------------------------------
+// non adaptive timeouts
+#define FLUSH_RESTART 1    // 1micro second
+#define SEPARATE_ACK_TIMEOUT 10 // 100micro seconds
+//-----------------------------------------------------------------------------
 // adaptive timeouts
-#define LEARNING_RATE 0.12500
+#define KARN_CONSTANT 1.5                  // congestion
+#define LEARNING_RATE 0.125                // flow
 #define SLOWDOWN_RATE 1.2
 #define BETA          LEARNING_RATE
 #define ALPHA         (1.0-LEARNING_RATE)
@@ -39,38 +50,40 @@ typedef struct sliding_window {
     int messages_processed;
     // refering address
     CnetAddr address;
-    // timeouts management
+    // queue timeouts management
     QUEUE fragment_queue;
     CnetTimerID flush_queue_timer;
     CnetTimerID separate_ack_timer;
-    int retransmitted[NRBUFS][MAXFR];
-    // adaptive timeouts
+    // adaptive and retransmit timeouts
     CnetTime adaptive_timeout;
     CnetTime adaptive_deviation;
     CnetTime timesent[NRBUFS][MAXFR];
+    CnetTimerID timers[NRBUFS];               // retransmit timeout
     // sliding window variables
-    int nbuffered;               // sender side
-    int ackexpected;
-    int nextframetosend;
-    int toofar;                  // receiver side
-    int nonack;
-    int frameexpected;
-    int arrived[NRBUFS];         // marks if entire packet arrived
-    PACKET inpacket[NRBUFS];     // space for assembling incoming packet
-    PACKET outpacket[NRBUFS];    // space for storing packets for resending
-    uint16_t inlengths[NRBUFS];  // length of incoming packet so far
-    uint16_t outlengths[NRBUFS]; // length of outgoing packet
-    CnetTimerID timers[NRBUFS];  // retransmit timeout
+    swin_seqno_t nbuffered;                   // sender side
+    swin_seqno_t ackexpected;
+    swin_seqno_t nextframetosend;
+    swin_seqno_t toofar;                      // receiver side
+    swin_seqno_t frameexpected;
+    // out of order packet management
+    swin_bool_t nonack;
+    // packet status and reassembly
+    swin_bool_t arrived[NRBUFS];              // marks if entire packet arrived
+    swin_bool_t retransmitted[NRBUFS][MAXFR]; // marks if packet was retransmitted
+    PACKET inpacket[NRBUFS];                  // space for assembling incoming packet
+    PACKET outpacket[NRBUFS];                 // space for storing packets for resending
+    msg_len_t inlengths[NRBUFS];              // length of incoming packet so far
+    msg_len_t outlengths[NRBUFS];             // length of outgoing packet
     // fragmentation variables
-    int lastfullfragment;
-    uint8_t numfrags[NRBUFS];
-    uint8_t numacks[NRBUFS];
-    uint16_t mtusize[NRBUFS];
-    int16_t lastfrag[NRBUFS];
-    uint32_t allackssarrived[NRBUFS];
-    uint32_t arrivedacks[NRBUFS][MAXFR];
-    uint32_t arrivedfrags[NRBUFS][MAXFR];
-} sliding_window;
+    swin_mtu_t mtusize[NRBUFS];
+    swin_frag_ind_t lastfullfragment;
+    swin_frag_count_t numfrags[NRBUFS];
+    swin_frag_count_t numacks[NRBUFS];
+    swin_frag_ind_t lastfrag[NRBUFS];
+    swin_bool_t allackssarrived[NRBUFS];
+    swin_bool_t arrivedacks[NRBUFS][MAXFR];
+    swin_bool_t arrivedfrags[NRBUFS][MAXFR];
+}  __attribute__((packed)) sliding_window;
 //-----------------------------------------------------------------------------
 // initialize transport layer
 extern void init_transport();
@@ -79,7 +92,7 @@ extern void init_transport();
 extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
 //-----------------------------------------------------------------------------
 // write incoming message from network to transport
-extern void read_transport(uint8_t kind, uint16_t length, CnetAddr source, char * packet);
+extern void read_transport(msg_type_t kind, msg_len_t len, CnetAddr src, char* pkt);
 //-----------------------------------------------------------------------------
 extern void signal_transport(SIGNALKIND sg, SIGNALDATA data);
 //-----------------------------------------------------------------------------
