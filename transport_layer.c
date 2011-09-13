@@ -251,7 +251,7 @@ static int between(int a, int b, int c) {
 //-----------------------------------------------------------------------------
 static void reset_sender_window(int ack_mod, int table_ind) {
     --swin[table_ind].nbuffered;
-    for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
+    for (int i = 0; i < (int)swin[table_ind].numacks[ack_mod]; i++) {
         swin[table_ind].retransmitted[ack_mod][i] = FALSE;
         swin[table_ind].arrivedacks[ack_mod][i] = FALSE;
         swin[table_ind].timesent[ack_mod][i] = -1;
@@ -300,11 +300,11 @@ static void set_timeout(uint8_t dst, uint16_t pkt_len, PACKET pkt, int table_ind
         CnetData data = (dst << SEQNO_WIDTH) | seqno;
 
         // transmission delay
-        swin_frag_count_t frag_num = swin[table_ind].numacks[seqno];
-        msg_len_t data_len = frag_num*(PACKET_HEADER_SIZE+DATAGRAM_HEADER_SIZE+pkt_len);
-        double bandwidth = linkinfo[link].bandwidth;
-        double trans_delay = 8000000 * ((double)(data_len) / bandwidth);
-        CnetTime timeout = 2*swin[table_ind].adaptive_timeout+4*swin[table_ind].adaptive_deviation + trans_delay;
+//        swin_frag_count_t frag_num = swin[table_ind].numacks[seqno];
+//        msg_len_t data_len = frag_num*(PACKET_HEADER_SIZE+DATAGRAM_HEADER_SIZE+pkt_len);
+//        double bandwidth = linkinfo[link].bandwidth;
+//        double trans_delay = 8000000 * ((double)(data_len) / bandwidth);
+        CnetTime timeout = 2*swin[table_ind].adaptive_timeout+4*swin[table_ind].adaptive_deviation;
         swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, timeout, data);
     }
 }
@@ -457,9 +457,9 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         CnetTime measured, curr_deviation, observed, difference;
         if (swin[table_ind].ackexpected != pkt.ackseqno) {
             // handle adaptive timeout
-            for (int i = 0; i < swin[table_ind].numacks[ack_mod]; i++) {
-                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE &&
-                   swin[table_ind].retransmitted[ack_mod][i] == FALSE) {
+            for (int i = 0; i < (int)swin[table_ind].numacks[ack_mod]; i++) {
+                if((swin[table_ind].arrivedacks[ack_mod][i] == FALSE) &&
+                   (swin[table_ind].retransmitted[ack_mod][i] == FALSE)) {
                     // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
@@ -470,7 +470,12 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+ALPHA*fabs(difference);
                     swin[table_ind].adaptive_timeout = ALPHA*measured+ALPHA*observed;
 
-                    assert(swin[table_ind].timesent[ack_mod][i] > 0);
+                    if(swin[table_ind].timesent[ack_mod][i] <= 0) {
+                        fprintf(stderr, "ERROR: possibly mtu changed while sending!!!\n");
+                        fprintf(stderr, "timesent: %ld\n", swin[table_ind].timesent[ack_mod][i]);
+                        dump_sliding_window();
+                        assert(swin[table_ind].timesent[ack_mod][i] > 0);
+                    }
 
                     // update statistics
                     observed_packets++;
@@ -483,9 +488,9 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
             }
             swin[table_ind].allackssarrived[ack_mod] = TRUE;
         } else {
-            for (int i = 0; i <= pkt.acksegid; i++) {
-                if(swin[table_ind].arrivedacks[ack_mod][i] == FALSE &&
-                   swin[table_ind].retransmitted[ack_mod][i] == FALSE) {
+            for (int i = 0; i <= (int)pkt.acksegid; i++) {
+                if((swin[table_ind].arrivedacks[ack_mod][i] == FALSE) &&
+                   (swin[table_ind].retransmitted[ack_mod][i] == FALSE)) {
                     // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
@@ -496,8 +501,13 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+BETA*fabs(difference);
                     swin[table_ind].adaptive_timeout = ALPHA*measured+BETA*observed;
 
-                    assert(swin[table_ind].timesent[ack_mod][i] > 0);
+                    if(swin[table_ind].timesent[ack_mod][i] <= 0) {
+                        fprintf(stderr, "ERROR: possibly mtu changed while sending!!!\n");
+                        fprintf(stderr, "timesent: %ld\n", swin[table_ind].timesent[ack_mod][i]);
+                        dump_sliding_window();
 
+                        assert(swin[table_ind].timesent[ack_mod][i] > 0);
+                    }
                     // update statistics
                     observed_packets++;
                     average_measured += swin[table_ind].adaptive_timeout;
@@ -583,7 +593,7 @@ void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
         out_of_order++;
 
         frg.segid = 0;
-        transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
+        //transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
     } else {
         int frg_id = pkt.segid-1;
         if (swin[table_ind].nonack && frg_id >= 0 &&
@@ -593,7 +603,7 @@ void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
 
             frg.seqno = pkt.seqno;
             frg.segid = frg_id;
-            transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
+            //transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
         }
     }
 }
