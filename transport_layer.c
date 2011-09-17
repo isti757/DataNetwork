@@ -6,7 +6,7 @@
  */
 #include <assert.h>
 #include <limits.h>
-
+#include "cnet.h"
 #include "log.h"
 #include "debug.h"
 #include "routing.h"
@@ -115,7 +115,7 @@ static void dump_sliding_window() {
         fprintf(swin_dump_file, "timesent: \n");
         for (int b = 0; b < NRBUFS; b++) {
         for (int f = 0; f < MAXFR; f++) {
-            fprintf(swin_dump_file,"%ld ", swin[t].timesent[b][f]);
+            //fprintf(swin_dump_file,"%lld ", swin[t].timesent[b][f]);
         }
         fprintf(swin_dump_file, "\n");
         }
@@ -149,16 +149,16 @@ static void dump_sliding_window() {
 //-----------------------------------------------------------------------------
 // initializes sliding window table
 static void init_sliding_window() {
-    char filename [] = "sendrecvlog";
-    sprintf(filename+8, "%3d", nodeinfo.address);
-    logfile_send_receive = fopen(filename, "a");
+//    char filename [] = "sendrecvlog";
+//    sprintf(filename+8, "%3d", nodeinfo.address);
+//    logfile_send_receive = fopen(filename, "a");
 
     swin   = (sliding_window *)malloc(sizeof(sliding_window));
     swin_size  = 0;
 }
 //-----------------------------------------------------------------------------
 static void destroy_sliding_window() {
-    fclose(logfile_send_receive);
+    //fclose(logfile_send_receive);
     for(int i = 0; i < swin_size; i++) {
         queue_free(swin[i].fragment_queue);
     }
@@ -344,19 +344,23 @@ void transmit_packet(msg_type_t kind, uint8_t dst, uint16_t pkt_len, PACKET pkt)
 
     //fprintf(logfile_send_receive, "send: src: %d dest: %d time: %lu seq: %lu seg: %u ackseqno: %u acksegid: %u kind: ", nodeinfo.address, (unsigned)dst , (nodeinfo.time_in_usec), (uint64_t)pkt.seqno, (unsigned)pkt.segid, (unsigned)pkt.ackseqno, (unsigned)pkt.acksegid);
 
-    if(swin[table_ind].retransmitted[pkt.seqno % NRBUFS][pkt.segid] && is_kind(kind,__DATA__))
-        fprintf(logfile_send_receive,"RETR ");
+    //if(swin[table_ind].retransmitted[pkt.seqno % NRBUFS][pkt.segid] && is_kind(kind,__DATA__))
+    //    fprintf(logfile_send_receive,"RETR ");
 
-    if(is_kind(kind,__ACK__))
-       fprintf(logfile_send_receive,"ACK ");
+    //if(is_kind(kind,__ACK__))
+    //   fprintf(logfile_send_receive,"ACK ");
 
-    if(is_kind(kind,__NACK__))
-        fprintf(logfile_send_receive,"NACK ");
+    //if(is_kind(kind,__NACK__))
+    //    fprintf(logfile_send_receive,"NACK ");
 
-    if(is_kind(kind,__DATA__))
-        fprintf(logfile_send_receive,"DATA ");
+    //if(is_kind(kind,__DATA__))
+    //    fprintf(logfile_send_receive,"DATA ");
 
-    fprintf(logfile_send_receive,"\n");
+    //fprintf(logfile_send_receive,"\n");
+//    if (route_exists(dst) == 0 && is_kind(kind,__ACK__)) {
+//        fprintf(stderr,"Ignored ACK, no route to %d on host %d\n",dst,nodeinfo.address);
+//        return;
+//    }
 
     write_network(kind, dst, pkt_len, (char*)&pkt);
 }
@@ -470,12 +474,12 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+ALPHA*fabs(difference);
                     swin[table_ind].adaptive_timeout = ALPHA*measured+ALPHA*observed;
 
-                    if(swin[table_ind].timesent[ack_mod][i] <= 0) {
-                        fprintf(stderr, "ERROR: possibly mtu changed while sending!!!\n");
-                        fprintf(stderr, "timesent: %ld\n", swin[table_ind].timesent[ack_mod][i]);
-                        dump_sliding_window();
-                        assert(swin[table_ind].timesent[ack_mod][i] > 0);
-                    }
+//                    if(swin[table_ind].timesent[ack_mod][i] <= 0) {
+//                        fprintf(stderr, "ERROR: possibly mtu changed while sending!!!\n");
+//                        fprintf(stderr, "timesent: %lld\n", swin[table_ind].timesent[ack_mod][i]);
+//                        dump_sliding_window();
+//                        assert(swin[table_ind].timesent[ack_mod][i] > 0);
+//                    }
 
                     // update statistics
                     observed_packets++;
@@ -501,13 +505,13 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+BETA*fabs(difference);
                     swin[table_ind].adaptive_timeout = ALPHA*measured+BETA*observed;
 
-                    if(swin[table_ind].timesent[ack_mod][i] <= 0) {
-                        fprintf(stderr, "ERROR: possibly mtu changed while sending!!!\n");
-                        fprintf(stderr, "timesent: %ld\n", swin[table_ind].timesent[ack_mod][i]);
-                        dump_sliding_window();
+//                    if(swin[table_ind].timesent[ack_mod][i] <= 0) {
+//                        fprintf(stderr, "ERROR: possibly mtu changed while sending!!!\n");
+//                        //fprintf(stderr, "timesent: %ld\n", swin[table_ind].timesent[ack_mod][i]);
+//                        dump_sliding_window();
 
-                        assert(swin[table_ind].timesent[ack_mod][i] > 0);
-                    }
+//                        assert(swin[table_ind].timesent[ack_mod][i] > 0);
+//                    }
                     // update statistics
                     observed_packets++;
                     average_measured += swin[table_ind].adaptive_timeout;
@@ -534,8 +538,9 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
 
         inc(&(swin[table_ind].ackexpected));
     }
-    if (acked && queue_nitems(swin[table_ind].fragment_queue) < 10)
+    if (acked && queue_nitems(swin[table_ind].fragment_queue) < 10) {
         CHECK(CNET_enable_application(src));
+    }
 }
 //-----------------------------------------------------------------------------
 void handle_nack(CnetAddr src, PACKET pkt, int table_ind) {
@@ -780,7 +785,7 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     swin[table_ind].adaptive_timeout *= 1.5;
 
     // find out where to send and how to fragment
-    swin_mtu_t mtu = get_mtu(swin[table_ind].address);
+    swin_mtu_t mtu = read_mtu(swin[table_ind].address);
 
     // segment id and fraction of packet transmitted
     swin_frag_ind_t segid = 0;
@@ -857,6 +862,9 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 
     size_t frg_len = FRAGMENT_HEADER_SIZE+PACKET_HEADER_SIZE+frg.len;
     queue_add(swin[table_ind].fragment_queue, &frg, frg_len);
+
+
+
 }
 //-----------------------------------------------------------------------------
 // clean all allocated memory
@@ -864,7 +872,7 @@ static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
     fprintf(stderr, "address: %d\n", nodeinfo.address);
     fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
     fprintf(stderr, "\tretransmitted pack: %d\n", packets_retransmitted_total);
-    fprintf(stderr, "\tretransmitted frag: %lu\n", fragments_retransmitted_total);
+    //fprintf(stderr, "\tretransmitted frag: %llu\n", fragments_retransmitted_total);
     fprintf(stderr, "\tseparate ack: %d\n", separate_ack);
     fprintf(stderr, "\tnacks handled: %d\n", (int)nacks_handled);
     fprintf(stderr, "\tout of order: %d\n", (int)out_of_order);
@@ -892,6 +900,7 @@ void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
     if (sg == DISCOVERY_FINISHED) {
         T_DEBUG("Discovery finished\n");
         CNET_enable_application(ALLNODES);
+
     }
     if (sg == MTU_DISCOVERED) {
         uint8_t address = (uint8_t)data;
