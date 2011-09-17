@@ -83,10 +83,6 @@ void learn_route_table(CnetAddr address, int hops, int link, int mtu, CnetTime t
 
         fprintf(table_log,"Record: addr:%d, link:%d, mtu:%d,delay:%lld req_id:%d\n",address,
                 link,mtu,total_delay,req_id);
-
-        if (route_table_size == 47) {
-            fprintf(stderr,"Host %d knows the network %lld\n",nodeinfo.address,nodeinfo.time_in_usec);
-        }
     }
 
 }
@@ -234,7 +230,7 @@ void route(DATAGRAM dtg) {
     if (link < 1) {
         fprintf(stderr,"in route(): no address for %d host %d\n", dtg.dest,nodeinfo.address);
         fprintf(routing_log,"in route(): no address for %d host %d\n", dtg.dest,nodeinfo.address);
-        abort();
+        exit(-1);
     } else {
         N_DEBUG2("in route(): send to link %d\n to address=%d\n", link, dtg.dest);
         send_packet_to_link(link, dtg);

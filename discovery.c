@@ -72,6 +72,7 @@ void discovery_timer_handler(CnetEvent ev, CnetTimerID timer, CnetData data) {
         N_DEBUG("Start polling..\n");
         for (int i = 1; i <= nodeinfo.nlinks; i++) {
             pollNeighbor(i);
+            pollNeighbor(i);
         }
         // start poll fail timer for this poll period
         CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT, POLLRESPONSETIMER);
