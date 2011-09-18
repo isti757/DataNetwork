@@ -197,7 +197,7 @@ static int find_swin(CnetAddr address) {
     swin[swin_size].separate_ack_timer = NULLTIMER;
 
     // adaptive timeout
-    swin[swin_size].adaptive_timeout = 0;
+   swin[swin_size].adaptive_timeout = 0;
     swin[swin_size].adaptive_deviation = 0;
 
     // sliding window
@@ -593,7 +593,7 @@ void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
         out_of_order++;
 
         frg.segid = 0;
-        //transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
+        transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
     } else {
         int frg_id = pkt.segid-1;
         if (swin[table_ind].nonack && frg_id >= 0 &&
@@ -603,7 +603,7 @@ void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
 
             frg.seqno = pkt.seqno;
             frg.segid = frg_id;
-            //transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
+            transmit_packet(__NACK__, src, PACKET_HEADER_SIZE, frg);
         }
     }
 }
