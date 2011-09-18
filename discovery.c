@@ -1,15 +1,9 @@
-/*
- * discovery.c
- *
- *  Created on: 02.08.2011
- *      Author: kirill
- */
 #include <cnet.h>
 #include <malloc.h>
 #include <string.h>
-
+#include "log.h"
 #include "discovery.h"
-
+#include "routing.h"
 //-----------------------------------------------------------------------------
 static int response_status[MAX_LINKS_COUNT];
 //-----------------------------------------------------------------------------
@@ -49,8 +43,8 @@ void do_discovery(int link, DATAGRAM datagram) {
     case I_AM:
         // response to our Who_R_U query
         N_DEBUG("learning table...\n");
-        learn_route_table(p.address, 0, link, linkinfo[link].mtu, p.delay);
-        N_DEBUG2("Poll response from %d %d\n", link, nodeinfo.time_in_usec);
+        learn_route_table(p.address, 0, link, linkinfo[link].mtu, p.delay,-1);
+        fprintf(routing_log,"Poll response from link:%d addr:%d\n", link, p.address);
         response_status[link] = 1;
         break;
     }
@@ -77,6 +71,7 @@ void discovery_timer_handler(CnetEvent ev, CnetTimerID timer, CnetData data) {
         // time to poll neighbors again
         N_DEBUG("Start polling..\n");
         for (int i = 1; i <= nodeinfo.nlinks; i++) {
+            pollNeighbor(i);
             pollNeighbor(i);
         }
         // start poll fail timer for this poll period

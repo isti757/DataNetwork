@@ -1,5 +1,5 @@
 #include <cnet.h>
-
+#include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -26,14 +26,15 @@ void histogram() {
 // write an outcoming packet into network layer
 void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet) {
     N_DEBUG("Call write_network\n");
-    DATAGRAM dtg;
-    dtg.src = nodeinfo.address;
-    dtg.dest = address;
-    dtg.kind = kind | __TRANSPORT__;
-    dtg.length = length;
+    DATAGRAM dtg = alloc_datagram((kind | __TRANSPORT__),nodeinfo.address,address,packet,length);
+    dtg.declared_mtu = read_mtu(address);
     size_t packet_length = length;
     //copy the payload
     memcpy(&(dtg.payload), packet, packet_length);
+
+
+    fprintf(routing_log,"Send DATA to %d\n",dtg.dest);
+
     //route
     route(dtg);
 }
@@ -55,9 +56,12 @@ void read_network(int link, size_t length, char * datagram) {
         memcpy((char*)&pkt, dtg.payload, len_to_cpy);
         if ((CnetAddr)(dtg.dest) != nodeinfo.address) {
             N_DEBUG("forwarding..\n");
+
+            fprintf(routing_log,"Forward DATA from %d dest %d\n",dtg.src,dtg.dest);
             route(dtg);
             packets_forwarded_total++;
         } else {
+            fprintf(routing_log,"Recieved DATA from %d\n",dtg.src);
             read_transport(dtg.kind, dtg.length, dtg.src, (char*)dtg.payload);
         }
     }
@@ -70,6 +74,7 @@ DATAGRAM alloc_datagram(uint8_t prot, int src, int dest, char *p, uint16_t len) 
     np.src = src;
     np.dest = dest;
     np.length = len;
+    np.req_id = -1;
     size_t len_to_copy = len;
     memcpy((char*)np.payload, (char*)p, len_to_copy);
     return np;

@@ -79,6 +79,13 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         D_DEBUG3("Flushed to link %d %d bytes checksum %lu\n",link,datagram_length,frame.checksum);
         memcpy(&frame.data, dtg_container->data, datagram_length);
         size_t frame_length = datagram_length + DL_FRAME_HEADER_SIZE;
+        if (frame_length > linkinfo[link].mtu) {
+            DATAGRAM dtg;
+            memcpy(&dtg,&frame.data,datagram_length);
+            fprintf(stderr,"BADSIZE: host %d, actual mtu:%d,decl mtu:%d, from %d to %d lenght %d req_id %d\n",
+                    nodeinfo.address,linkinfo[link].mtu,dtg.declared_mtu,dtg.src,dtg.dest,frame_length,
+                    dtg.req_id);
+        }
         CHECK(CNET_write_physical(link, (char *)&frame, &frame_length));
 
         //compute timeout for the link
@@ -107,21 +114,21 @@ void shutdown_datalink() {
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
         fprintf(stderr, "\tlink %d - datalink queue: %d packets\n", i, queue_nitems(output_queues[i]));
         if(queue_nitems(output_queues[i]) > 1000) {
-            char filename [] = "datalink___";
-            sprintf(filename+8, "%3d", nodeinfo.address);
-            FILE* datalink_file = fopen(filename, "a");
+//            char filename [] = "datalink___";
+//            sprintf(filename+8, "%3d", nodeinfo.address);
+//            FILE* datalink_file = fopen(filename, "a");
 
             while(queue_nitems(output_queues[i]) != 0) {
                 size_t containter_len;
                 DTG_CONTAINER * dtg_container = queue_remove(output_queues[i], &containter_len);
                 DATAGRAM dtgr; size_t len = dtg_container->len;
                 memcpy(&dtgr, dtg_container->data, len);
-                fprintf(datalink_file, "src: %u dest: %u len: %d kind: %u\n", dtgr.src, dtgr.dest, dtgr.length, dtgr.kind);
+                //fprintf(datalink_file, "src: %u dest: %u len: %d kind: %u\n", dtgr.src, dtgr.dest, dtgr.length, dtgr.kind);
 
                 free(dtg_container);
             }
 
-            fclose(datalink_file);
+            //fclose(datalink_file);
         }
         queue_free(output_queues[i]);
     }
