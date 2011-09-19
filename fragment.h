@@ -1,10 +1,3 @@
-/*
- * fragment.h
- *
- *  Created on: Aug 5, 2011
- *      Author: isti
- */
-
 #ifndef FRAGMENT_H_
 #define FRAGMENT_H_
 

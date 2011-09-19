@@ -1,10 +1,3 @@
-/*
- * datalink_container.h
- *
- *  Created on: 09.08.2011
- *      Author: kirill
- */
-
 #ifndef DATALINK_CONTAINER_H_
 #define DATALINK_CONTAINER_H_
 

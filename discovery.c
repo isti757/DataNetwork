@@ -5,17 +5,16 @@
 #include "discovery.h"
 #include "routing.h"
 //-----------------------------------------------------------------------------
+//a status array of the discovery responses
 static int response_status[MAX_LINKS_COUNT];
 //-----------------------------------------------------------------------------
-// initialize discovery protocol
+// initialize the discovery protocol
 void init_discovery() {
     // establish the timer event handler
     CHECK(CNET_set_handler(EV_DISCOVERY_TIMER, discovery_timer_handler, 0));
-
     // initialize the response status
     for (int i = 1; i <= nodeinfo.nlinks; i++)
         response_status[i] = 0;
-
     CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_START_UP_TIME, POLLTIMER);
 }
 //-----------------------------------------------------------------------------
@@ -24,12 +23,11 @@ void do_discovery(int link, DATAGRAM datagram) {
     DISCOVERY_PACKET p;
     size_t datagram_length = datagram.length;
     memcpy(&p, &datagram.payload, datagram_length);
-
     // process request/response
     switch (p.type) {
     case Who_R_U:
+    {
         // request that we identify ourselves - send I_Am reply
-    	;
         DISCOVERY_PACKET dpkt;
         dpkt.type = I_AM;
         dpkt.address = nodeinfo.address; // my address
@@ -40,9 +38,10 @@ void do_discovery(int link, DATAGRAM datagram) {
         DATAGRAM np = alloc_datagram(__DISCOVER__, nodeinfo.address, p.address, (char *) &dpkt, packet_size);
         send_packet_to_link(link, np);
         break;
+    }
     case I_AM:
         // response to our Who_R_U query
-        N_DEBUG("learning table...\n");
+        //N_DEBUG("learning table...\n");
         learn_route_table(p.address, 0, link, linkinfo[link].mtu, p.delay,-1);
         fprintf(routing_log,"Poll response from link:%d addr:%d\n", link, p.address);
         response_status[link] = 1;
@@ -69,7 +68,7 @@ void discovery_timer_handler(CnetEvent ev, CnetTimerID timer, CnetData data) {
     switch ((int) data) {
     case POLLTIMER:
         // time to poll neighbors again
-        N_DEBUG("Start polling..\n");
+        //N_DEBUG("Start polling..\n");
         for (int i = 1; i <= nodeinfo.nlinks; i++) {
             pollNeighbor(i);
             pollNeighbor(i);
@@ -78,7 +77,8 @@ void discovery_timer_handler(CnetEvent ev, CnetTimerID timer, CnetData data) {
         CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT, POLLRESPONSETIMER);
         break;
     case POLLRESPONSETIMER:
-        N_DEBUG("Checking for polling responses\n");
+    {
+        //N_DEBUG("Checking for polling responses\n");
         int run_timer = 0;
         for (int i = 1; i <= nodeinfo.nlinks; i++) {
             if (response_status[i] == 0) {
@@ -88,12 +88,13 @@ void discovery_timer_handler(CnetEvent ev, CnetTimerID timer, CnetData data) {
         }
         if (run_timer == 1) {
             CNET_start_timer(EV_DISCOVERY_TIMER, DISCOVERY_TIME_OUT, POLLRESPONSETIMER);
-            N_DEBUG("Timer started again\n");
+            //N_DEBUG("Timer started again\n");
         } else {
             // notify the transport layer
             signal_transport(DISCOVERY_FINISHED, -1);
         }
         break;
+    }
     }
 }
 //-----------------------------------------------------------------------------

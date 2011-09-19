@@ -2,7 +2,6 @@
 #define DISCOVERY_H_
 
 #include <cnet.h>
-
 #include "datagram.h"
 
 //-----------------------------------------------------------------------------
@@ -11,12 +10,12 @@
 #define I_AM      2
 #define MAX_LINKS_COUNT 30
 //-----------------------------------------------------------------------------
-// alias for cnet Timer Queue Number for Discovery
+// alias of cnet Timer for Discovery
 #define EV_DISCOVERY_TIMER  EV_TIMER9
 //-----------------------------------------------------------------------------
 // discovery protocol timers
 #define DISCOVERY_START_UP_TIME 10      // first delay for poll
-#define DISCOVERY_TIME_OUT 300000       // 0.5 sec in usec for responses to polls
+#define DISCOVERY_TIME_OUT 300000       // 0.3 sec in usec for responses to polls
 //-----------------------------------------------------------------------------
 #define POLLTIMER          1      // timer for polling
 #define POLLRESPONSETIMER  2      // timer for responses to polls

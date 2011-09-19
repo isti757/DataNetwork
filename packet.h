@@ -1,10 +1,3 @@
-/*
- * packet.h
- *
- *  Created on: Jun 28, 2011
- *      Author: isti
- */
-
 #ifndef PACKET_H_
 #define PACKET_H_
 

@@ -1,10 +1,3 @@
-/*
- * datagram.h
- *
- *  Created on: 30.07.2011
- *      Author: kirill
- */
-
 #ifndef DATAGRAM_H_
 #define DATAGRAM_H_
 

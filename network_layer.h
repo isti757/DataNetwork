@@ -1,10 +1,3 @@
-/*
- * network_layer.h
- *
- *  Created on: Jun 28, 2011
- *      Author: isti
- */
-
 #ifndef NETWORK_LAYER_H_
 #define NETWORK_LAYER_H_
 
@@ -21,10 +14,10 @@
 // initialize network layer
 extern void init_network();
 //-----------------------------------------------------------------------------
-// read an incoming packet into network layer
+// write an outcoming packet into network layer
 extern void write_network(uint8_t kind, CnetAddr dest,uint16_t length, char* data);
 //-----------------------------------------------------------------------------
-// write an incoming message from datalink to network layer
+// read an incoming message from datalink to network layer
 extern void read_network(int link, size_t length, char * datagram);
 //-----------------------------------------------------------------------------
 // send the datagram to the specified address
