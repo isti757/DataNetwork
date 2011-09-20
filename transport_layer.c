@@ -483,6 +483,7 @@ void handle_data(msg_type_t kind, msg_len_t length, CnetAddr src, PACKET pkt, in
         swin_seqno_t frameexpected_mod = swin[table_ind].frameexpected % NRBUFS;
         size_t len = swin[table_ind].inlengths[frameexpected_mod];
 
+        // uncompress the message
 //        lzo_uint new_len = len, out_len = len;
 //        int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
 //                                 out_len,in,&new_len,NULL);

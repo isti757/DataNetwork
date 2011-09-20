@@ -4,8 +4,9 @@
  *  Created on: Aug 30, 2011
  *      Author: kirill
  */
-#include <cnet.h>
 #include <stdlib.h>
+
+#include <cnet.h>
 
 #ifndef ROUTING_H_
 #define ROUTING_H_
@@ -60,10 +61,11 @@ typedef struct {
 	uint8_t source;
 	uint8_t dest;
         uint16_t hop_count;
-        int req_id; //a local counter maintained separately by each node and incremented each time a ROUTE REQUEST is sent
-        uint16_t min_mtu;//a minimum MTU value on the way to destination
+        int req_id;           // a local counter maintained separately by each node
+                              // and incremented each time a ROUTE REQUEST is sent
+        uint16_t min_mtu;     // a minimum MTU value on the way to destination
         uint16_t forward_min_mtu;
-	CnetTime total_delay;//a total propagation delay on the way to destination
+        CnetTime total_delay; // a total propagation delay on the way to destination
 } __attribute__((packed)) ROUTE_PACKET;
 
 #define ROUTE_PACKET_SIZE(pkt) (3*sizeof(uint16_t)+3*sizeof(uint8_t)+sizeof(CnetTime)+sizeof(int))

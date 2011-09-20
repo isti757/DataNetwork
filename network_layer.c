@@ -4,12 +4,12 @@
  *  Created on: Aug 30, 2011
  *      Author: kirill
  */
-#include <cnet.h>
-#include "log.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <cnet.h>
 
 #include "log.h"
 #include "packet.h"
@@ -17,7 +17,7 @@
 #include "network_layer.h"
 
 //-----------------------------------------------------------------------------
-//initialize the network table and run discovery
+// initialize the network table and run discovery
 void init_network() {
     init_routing();
     init_discovery();
@@ -38,12 +38,12 @@ void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet)
     route(dtg);
 }
 //-----------------------------------------------------------------------------
-//read an incoming message from datalink to network layer
+// read an incoming message from datalink to network layer
 void read_network(int link, size_t length, char * datagram) {
     DATAGRAM dtg;
     memcpy(&dtg, datagram, length);
 
-    //Dispatch the datagram
+    // dispatch the datagram
     if (is_kind(dtg.kind,__DISCOVER__))
         do_discovery(link, dtg);
     if (is_kind(dtg.kind,__ROUTING__))
@@ -67,6 +67,7 @@ DATAGRAM alloc_datagram(uint8_t prot, int src, int dest, char *p, uint16_t len) 
     np.src = src;
     np.dest = dest;
     np.length = len;
+
     size_t len_to_copy = len;
     memcpy((char*)np.payload, (char*)p, len_to_copy);
     return np;
@@ -82,7 +83,7 @@ void send_packet(CnetAddr addr, DATAGRAM datagram) {
 // send a packet to the link
 void send_packet_to_link(int link, DATAGRAM datagram) {
     size_t size = DATAGRAM_SIZE(datagram);
-    //compute the checksumm
+    // compute the checksumm
     uint32_t checksum = CNET_crc32((unsigned char *) &datagram, size);
     // send packet down to link layer
     write_datalink(link, (char *) &datagram, checksum, size);

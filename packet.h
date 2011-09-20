@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include <cnet.h>
+
 //-----------------------------------------------------------------------------
 // custom types
 typedef uint8_t swin_segid_t;

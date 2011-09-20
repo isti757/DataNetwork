@@ -14,7 +14,7 @@
 #include "routing.h"
 
 //-----------------------------------------------------------------------------
-//a status array of the discovery responses
+// a status array of the discovery responses
 static int response_status[MAX_LINKS_COUNT];
 //-----------------------------------------------------------------------------
 // initialize the discovery protocol

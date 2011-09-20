@@ -5,6 +5,7 @@
  *      Author: kirill
  */
 #include <unistd.h>
+
 #include "log.h"
 #include "routing.h"
 #include "dl_frame.h"
@@ -163,19 +164,19 @@ int find_reverse_route_no_id(CnetAddr source,CnetAddr dest) {
 // take a packet from the transport layer and send it to the destination
 void route(DATAGRAM dtg) {
     int link = -1;
-    //use the route table, direct route
+    // use the route table, direct route
     if (dtg.src == nodeinfo.address) {
         link = get_next_link_for_dest(dtg.dest);
-        //the route is discovered by this node
+        // the route is discovered by this node
         if (link != -1) {
             dtg.req_id = get_request_id_for_dest(dtg.dest);
         } else {
-            //find a reverse route
+            // find a reverse route
             link = find_reverse_route_no_id(dtg.dest,dtg.src);
             dtg.req_id = get_request_id_reverse(dtg.dest,dtg.src);
         }
     } else {
-        //send to a reverse route or a forward route.The datagram from another src
+        // send to a reverse route or a forward route.The datagram from another src
         if (dtg.req_id < 0) {
             abort();
         }
@@ -190,7 +191,7 @@ void route(DATAGRAM dtg) {
         send_packet_to_link(link, dtg);
 }
 //-----------------------------------------------------------------------------
-//find an item in the local history
+// find an item in the local history
 int find_local_history(CnetAddr source,CnetAddr dest, int req_id) {
     for (int t = 0; t < history_table_size; ++t) {
         if ((history_table[t].source == source) && (history_table[t].dest==dest) &&
@@ -211,7 +212,7 @@ int insert_local_history(CnetAddr source,CnetAddr dest, int req_id) {
     return (history_table_size++);
 }
 //-----------------------------------------------------------------------------
-//Check if a host is a neighbour
+// check if a host is a neighbour
 int is_neighbour(CnetAddr address) {
     for (int t = 0; t < route_table_size; ++t) {
         if (route_table[t].address == address && route_table[t].minhops==0) {
@@ -236,7 +237,8 @@ void do_routing(int link, DATAGRAM datagram) {
         }
         // insert into local history table
         insert_local_history(r_packet.source,r_packet.dest,r_packet.req_id);
-        //set up mtu and delays
+
+        // set up mtu and delays
         if (r_packet.min_mtu==0) {
             r_packet.min_mtu = linkinfo[link].mtu;
         } else {
@@ -251,19 +253,19 @@ void do_routing(int link, DATAGRAM datagram) {
         }
         r_packet.hop_count = r_packet.hop_count + 1;
 
-        //the current node is not the destination
+        // the current node is not the destination
         if (nodeinfo.address != r_packet.dest) {
-            //if a route exist to this destination
+            // if a route exist to this destination
             if (is_neighbour(r_packet.dest)) {
                 int next_link = get_next_link_for_dest(r_packet.dest);
                 uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
                 DATAGRAM rreq_datagram = alloc_datagram(__ROUTING__, r_packet.source,
                                                    r_packet.dest, (char*) &r_packet,
                                                    request_size);
-               insert_reverse_route(r_packet.source,r_packet.dest,link,r_packet.req_id);
+                insert_reverse_route(r_packet.source,r_packet.dest,link,r_packet.req_id);
                 send_packet_to_link(next_link,rreq_datagram);
             } else {
-                //if no route rebroadcast
+                // if no route rebroadcast
                 uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
                 DATAGRAM rreq_datagram = alloc_datagram(__ROUTING__, r_packet.source,
                                                    r_packet.dest, (char*) &r_packet,
@@ -273,9 +275,10 @@ void do_routing(int link, DATAGRAM datagram) {
             }
 
         } else {
-            //learn the route table
+            // learn the route table
             insert_reverse_route(r_packet.source,r_packet.dest,link,r_packet.req_id);
-            //send RREP
+
+            // send RREP
             ROUTE_PACKET rrep_packet;
             rrep_packet.source = r_packet.source;
             rrep_packet.dest = r_packet.dest;
@@ -297,9 +300,9 @@ void do_routing(int link, DATAGRAM datagram) {
         r_packet.hop_count = r_packet.hop_count + 1;
 
         if (nodeinfo.address != r_packet.source) {
-            //insert into the forward table
+            // insert into the forward table
             insert_forward_route(r_packet.source,r_packet.dest,link,r_packet.req_id);
-            //find a reverse link
+            // find a reverse link
             int reverse_link = find_reverse_route(r_packet.source,r_packet.dest,r_packet.req_id);
             if (reverse_link == -1) {
                 abort();
@@ -350,6 +353,7 @@ void send_route_request(CnetAddr destaddr, int time_to_live) {
                 CNET_start_timer(EV_ROUTE_PENDING_TIMER, ROUTE_REQUEST_TIMEOUT, destaddr);
         pending_route_request_ttl[destaddr] = time_to_live;
         route_notified[destaddr] = 0;
+
         // insert into local history table
         insert_local_history(req_packet.source,req_packet.dest, req_packet.req_id);
         broadcast_packet(r_packet, -1);
@@ -373,7 +377,7 @@ int get_mtu(CnetAddr address, int need_send_mtu_request) {
     }
 }
 //-----------------------------------------------------------------------------
-//Resend a route request
+// resend a route request
 void route_request_resend(CnetEvent ev, CnetTimerID timer, CnetData data) {
     int address = (int) data;
     if (route_exists(address) == 0) {
@@ -404,7 +408,7 @@ void init_routing() {
     CHECK(CNET_set_handler(EV_ROUTE_PENDING_TIMER,route_request_resend, 0));
 }
 //-----------------------------------------------------------------------------
-//Get a propagation delay on the way to destaddr
+// get a propagation delay on the way to destaddr
 int get_propagation_delay(CnetAddr destaddr) {
     if (route_exists(destaddr)) {
         int t = find_address(destaddr);

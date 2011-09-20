@@ -8,6 +8,7 @@
 #define DISCOVERY_H_
 
 #include <cnet.h>
+
 #include "datagram.h"
 
 //-----------------------------------------------------------------------------
@@ -20,11 +21,11 @@
 #define EV_DISCOVERY_TIMER  EV_TIMER9
 //-----------------------------------------------------------------------------
 // discovery protocol timers
-#define DISCOVERY_START_UP_TIME 10      // first delay for poll
-#define DISCOVERY_TIME_OUT 300000       // 0.3 sec in usec for responses to polls
+#define DISCOVERY_START_UP_TIME 10  // first delay for poll
+#define DISCOVERY_TIME_OUT 300000   // 0.3 sec in usec for responses to polls
 //-----------------------------------------------------------------------------
-#define POLLTIMER          1      // timer for polling
-#define POLLRESPONSETIMER  2      // timer for responses to polls
+#define POLLTIMER          1        // timer for polling
+#define POLLRESPONSETIMER  2        // timer for responses to polls
 //-----------------------------------------------------------------------------
 // discovery message format
 typedef struct {

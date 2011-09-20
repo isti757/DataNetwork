@@ -35,7 +35,7 @@ extern void send_packet_to_link(int link, DATAGRAM datagram);
 // broadcast packet to links
 extern void broadcast_packet(DATAGRAM dtg, int exclude_link);
 //-----------------------------------------------------------------------------
-//allocated a datagram
+// allocated a datagram
 extern DATAGRAM alloc_datagram(uint8_t prot, int src, int dest, char *data, uint16_t len);
 //-----------------------------------------------------------------------------
 // clean the memory
