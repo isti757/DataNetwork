@@ -1,3 +1,9 @@
+/*
+ * transport_layer.h
+ *
+ *  Created on: Aug 30, 2011
+ *      Author: kirill
+ */
 #ifndef DATALINK_LAYER_H_
 #define DATALINK_LAYER_H_
 
@@ -7,7 +13,7 @@
 #include "network_layer.h"
 
 //-----------------------------------------------------------------------------
-//A timer event for Cnet_write_physical
+// a timer event for Cnet_write_physical
 #define EV_DATALINK_FLUSH EV_TIMER6
 //-----------------------------------------------------------------------------
 // initialize datalink layer
@@ -22,4 +28,5 @@ extern void write_datalink(int link, char * data, uint32_t checksum, uint32_t le
 // clean the memory
 extern void shutdown_datalink();
 //-----------------------------------------------------------------------------
+
 #endif /* DATALINK_LAYER_H_ */

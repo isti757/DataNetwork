@@ -1,3 +1,9 @@
+/*
+ * transport_layer.h
+ *
+ *  Created on: Aug 30, 2011
+ *      Author: isti
+ */
 #ifndef PACKET_H_
 #define PACKET_H_
 
@@ -16,8 +22,8 @@ typedef uint16_t swin_seqno_t;       // maximum seqno is 65535
 typedef struct {
     swin_segid_t segid;     // segment sequence number
     swin_segid_t acksegid;  // piggybacked ack segment number
-    swin_seqno_t seqno;    // packet sequence number
-    swin_seqno_t ackseqno; // piggybacked ack sequence number
+    swin_seqno_t seqno;     // packet sequence number
+    swin_seqno_t ackseqno;  // piggybacked ack sequence number
     char msg[MAX_MESSAGE_SIZE];
 } __attribute__((packed)) PACKET;
 

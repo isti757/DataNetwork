@@ -1,3 +1,9 @@
+/*
+ * transport_layer.h
+ *
+ *  Created on: Aug 30, 2011
+ *      Author: kirill
+ */
 #ifndef DISCOVERY_H_
 #define DISCOVERY_H_
 
@@ -31,7 +37,7 @@ typedef struct {
 //-----------------------------------------------------------------------------
 extern void init_discovery();
 //-----------------------------------------------------------------------------
-//process a discovery packet
+// process a discovery packet
 extern void do_discovery(int, DATAGRAM dtg);
 //-----------------------------------------------------------------------------
 // poll our neighbors

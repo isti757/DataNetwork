@@ -1,5 +1,12 @@
+/*
+ * transport_layer.h
+ *
+ *  Created on: Aug 30, 2011
+ *      Author: kirill
+ */
 #ifndef FRAME_H_
 #define FRAME_H_
+
 //-----------------------------------------------------------------------------
 //A frame on the datalink layer
 typedef struct {
@@ -8,4 +15,5 @@ typedef struct {
 } __attribute__((packed)) DL_FRAME;
 #define DL_FRAME_HEADER_SIZE (sizeof(uint32_t))
 //-----------------------------------------------------------------------------
+
 #endif /* FRAME_H_ */

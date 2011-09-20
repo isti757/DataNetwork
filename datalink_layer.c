@@ -1,3 +1,9 @@
+/*
+ * transport_layer.h
+ *
+ *  Created on: Aug 30, 2011
+ *      Author: kirill
+ */
 #include "cnet.h"
 
 #include <stdio.h>
@@ -20,11 +26,9 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
     size_t len = DATAGRAM_HEADER_SIZE + DL_FRAME_HEADER_SIZE + 2*MAX_MESSAGE_SIZE;
     CHECK(CNET_read_physical(&link, (char *)&frame, &len));
     uint32_t checksum = frame.checksum;
-    //D_DEBUG3("We received on link %d %d bytes checksum=%lu\n",link ,len,checksum);
     size_t dtg_len = len - DL_FRAME_HEADER_SIZE;
     uint32_t checksum_to_compare = CNET_crc32((unsigned char *)&frame.data, dtg_len);
     if (checksum_to_compare != checksum) {
-        //D_DEBUG("BAD checksum - ignored\n");
         return; // bad checksum, ignore frame
     }
     //read a datagram to network layer
@@ -33,7 +37,6 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
 //-----------------------------------------------------------------------------
 // write a frame to the link
 void write_datalink(int link, char *datagram, uint32_t checksum, uint32_t length) {
-    //D_DEBUG2("Written to datalink queue %d checksum %lu\n", length,checksum);
     DTG_CONTAINER container;
     container.len = length;
     container.link = link;
@@ -53,8 +56,6 @@ void write_datalink(int link, char *datagram, uint32_t checksum, uint32_t length
 // flush a queue
 void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
     int current_link = (int) data;
-    //D_DEBUG2("Flushing - Number in datagram queue %d link_id=%d\n",
-    //        queue_nitems(output_queues[current_link]), current_link);
     if (queue_nitems(output_queues[current_link]) > 0) {
         // take a first datalink frame
         size_t containter_len;
@@ -64,15 +65,11 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         int link = dtg_container->link;
         size_t datagram_length = dtg_container->len;
         frame.checksum = dtg_container->checksum;
-        //D_DEBUG3("Flushed to link %d %d bytes checksum %lu\n",link,datagram_length,frame.checksum);
         memcpy(&frame.data, dtg_container->data, datagram_length);
         size_t frame_length = datagram_length + DL_FRAME_HEADER_SIZE;
         if (frame_length > linkinfo[link].mtu) {
             DATAGRAM dtg;
             memcpy(&dtg,&frame.data,datagram_length);
-            fprintf(stderr,"BADSIZE: host %d, actual mtu:%d,decl mtu:%d, from %d to %d lenght %d req_id %d\n",
-                    nodeinfo.address,linkinfo[link].mtu,dtg.declared_mtu,dtg.src,dtg.dest,frame_length,
-                    dtg.req_id);
         }
         CHECK(CNET_write_physical(link, (char *)&frame, &frame_length));
         //compute timeout for the link
@@ -100,23 +97,6 @@ void init_datalink() {
 void shutdown_datalink() {
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
         fprintf(stderr, "\tlink %d - datalink queue: %d packets\n", i, queue_nitems(output_queues[i]));
-        if(queue_nitems(output_queues[i]) > 1000) {
-//            char filename [] = "datalink___";
-//            sprintf(filename+8, "%3d", nodeinfo.address);
-//            FILE* datalink_file = fopen(filename, "a");
-
-            while(queue_nitems(output_queues[i]) != 0) {
-                size_t containter_len;
-                DTG_CONTAINER * dtg_container = queue_remove(output_queues[i], &containter_len);
-                DATAGRAM dtgr; size_t len = dtg_container->len;
-                memcpy(&dtgr, dtg_container->data, len);
-                //fprintf(datalink_file, "src: %u dest: %u len: %d kind: %u\n", dtgr.src, dtgr.dest, dtgr.length, dtgr.kind);
-
-                free(dtg_container);
-            }
-
-            //fclose(datalink_file);
-        }
         queue_free(output_queues[i]);
     }
 }

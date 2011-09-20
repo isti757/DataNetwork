@@ -1,3 +1,9 @@
+/*
+ * transport_layer.h
+ *
+ *  Created on: Aug 30, 2011
+ *      Author: kirill
+ */
 #include <cnet.h>
 #include <stdlib.h>
 
@@ -18,8 +24,8 @@
 // definition of a network routing table for each node
 typedef struct {
     uint8_t	address;
-    int	minhops;
-    int	minhop_link;
+    int	        minhops;
+    int	        minhop_link;
     int 	min_mtu;
     CnetTime	total_delay;
     int         req_id;
@@ -32,7 +38,7 @@ typedef struct {
 	int req_id;
 } __attribute__((packed)) HISTORY_TABLE;
 //-----------------------------------------------------------------------------
-//A reverse route table
+// a reverse route table
 typedef struct {
         uint8_t source;
         uint8_t dest;
@@ -40,7 +46,7 @@ typedef struct {
         int req_id;
 } REVERSE_ROUTE_TABLE;
 //-----------------------------------------------------------------------------
-//A forward route table
+// a forward route table
 typedef struct {
     uint8_t source;
     uint8_t dest;
@@ -48,7 +54,7 @@ typedef struct {
     int req_id;
 } FORWARD_ROUTE_TABLE;
 //-----------------------------------------------------------------------------
-//A route request packet
+// a route request packet
 typedef struct {
 	uint8_t type;
 	uint8_t source;
@@ -71,14 +77,15 @@ extern void route(DATAGRAM);
 // check if a route for specified address exists in routing table
 extern int route_exists(CnetAddr address);
 //-----------------------------------------------------------------------------
-//send a route request to find address
+// send a route request to find address
 extern void send_route_request(CnetAddr address, int time_to_live);
 //-----------------------------------------------------------------------------
-//process a routing packet
+// process a routing packet
 extern void do_routing(int link,DATAGRAM datagram);
 //-----------------------------------------------------------------------------
 // learn the routing table
-extern void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime total_delay,int req_id);
+extern void learn_route_table(CnetAddr address, int hops, int link, int mtu,
+                              CnetTime total_delay, int req_id);
 //-----------------------------------------------------------------------------
 // detect a link for outcoming message
 extern int get_next_link_for_dest(CnetAddr destaddr);
@@ -86,7 +93,7 @@ extern int get_next_link_for_dest(CnetAddr destaddr);
 // detect a fragmentation size for the specified address
 extern int get_mtu(CnetAddr dest, int need_send_mtu_request);
 //-----------------------------------------------------------------------------
-//get propagation delay on the route to specified address
+// get propagation delay on the route to specified address
 extern int get_propagation_delay(CnetAddr);
 //-----------------------------------------------------------------------------
 extern void shutdown_routing();
