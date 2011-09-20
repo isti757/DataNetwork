@@ -4,7 +4,6 @@
  *  Created on: Jul 30, 2011
  *      Author: isti
  */
-#include <assert.h>
 #include <limits.h>
 #include "cnet.h"
 #include "log.h"
@@ -31,7 +30,6 @@ static unsigned int sent_messages = 0;
 //-----------------------------------------------------------------------------
 // queue containing packets waiting dispatch
 QUEUE fragment_queue;
-// timers
 CnetTimerID flush_queue_timer = NULLTIMER;
 //-----------------------------------------------------------------------------
 // a table of sliding windows
@@ -45,7 +43,6 @@ static void init_sliding_window() {
 }
 //-----------------------------------------------------------------------------
 static void destroy_sliding_window() {
-    //fclose(logfile_send_receive);
     for(int i = 0; i < swin_size; i++) {
         queue_free(swin[i].fragment_queue);
     }
@@ -62,6 +59,7 @@ static void init_compression() {
 //    }
 }
 //-----------------------------------------------------------------------------
+// free compression variables
 static void destroy_compression() {
     //free(in);
 }
@@ -128,7 +126,6 @@ static void inc(swin_seqno_t *seq) {
 }
 //-----------------------------------------------------------------------------
 // determine if b falls into sliding window
-// TODO: optimize checks
 static int between(swin_seqno_t a, swin_seqno_t b, swin_seqno_t c) {
     int cond1 = (b < c);
     int cond2 = (c < a);
@@ -136,6 +133,7 @@ static int between(swin_seqno_t a, swin_seqno_t b, swin_seqno_t c) {
     return ((cond3 && cond1) || (cond2 && cond3) || (cond1 && cond2));
 }
 //-----------------------------------------------------------------------------
+// reset sliding window variables on sender side
 static void reset_sender_window(swin_seqno_t ack_mod, int table_ind) {
     --swin[table_ind].nbuffered;
     for (int i = 0; i < (int)swin[table_ind].numacks[ack_mod]; i++) {
@@ -150,6 +148,7 @@ static void reset_sender_window(swin_seqno_t ack_mod, int table_ind) {
     swin[table_ind].timers[ack_mod] = NULLTIMER;
 }
 //-----------------------------------------------------------------------------
+// reset sliding window variables on receiver side
 static void reset_receiver_window(swin_seqno_t frameexpected_mod, int table_ind) {
     swin[table_ind].nonack = TRUE;
     swin[table_ind].inlengths[frameexpected_mod] = 0;
@@ -164,6 +163,7 @@ static void reset_receiver_window(swin_seqno_t frameexpected_mod, int table_ind)
     swin[table_ind].lastfrag[frameexpected_mod] = -1;
 }
 //-----------------------------------------------------------------------------
+// set a retransmit timer for a packet
 static void set_timeout(swin_addr_t dst, msg_len_t pkt_len, PACKET pkt, int table_ind) {
     swin_seqno_t seqno = pkt.seqno % NRBUFS;
 
@@ -306,6 +306,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         swin[table_ind].flush_queue_timer = NULLTIMER;
 }
 //-----------------------------------------------------------------------------
+// handle incoming acknowledgement
 void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
     swin_bool_t acked = FALSE;
 
@@ -386,6 +387,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         CHECK(CNET_enable_application(src));
 }
 //-----------------------------------------------------------------------------
+// handle an incoming negative acknowledgement
 void handle_nack(CnetAddr src, int table_ind) {
     nacks_handled++;
     swin_seqno_t seqno = swin[table_ind].ackexpected % NRBUFS;
@@ -400,6 +402,7 @@ void handle_nack(CnetAddr src, int table_ind) {
     ack_timeout(-1, -1, data);
 }
 //-----------------------------------------------------------------------------
+// handle data out of order (possibly a loss occured)
 void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
     // if not the segment expected send a NACK
     PACKET frg;
@@ -428,22 +431,19 @@ void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
     }
 }
 //-----------------------------------------------------------------------------
+// handle incoming data
 void handle_data(msg_type_t kind, msg_len_t length, CnetAddr src, PACKET pkt, int table_ind) {
     // avoid recomputing the modulus
     swin_seqno_t pkt_seqno_mod = pkt.seqno % NRBUFS;
 
     // figure out mtu and number of fragments to come
     swin_bool_t lastmsg = is_kind(kind, __LASTSGM__);
-    if (lastmsg == 0) {
+    if (lastmsg == 0)
         swin[table_ind].mtusize[pkt_seqno_mod] = length-PACKET_HEADER_SIZE;
-        assert(length > PACKET_HEADER_SIZE);
-    }
     if(lastmsg == 1) {
         swin[table_ind].numfrags[pkt_seqno_mod] = pkt.segid + 1;
-        assert( swin[table_ind].numfrags[pkt_seqno_mod] == (int)(pkt.segid + 1));
         if (pkt.segid == 0) {
             swin[table_ind].mtusize[pkt_seqno_mod] = length-PACKET_HEADER_SIZE;
-            assert(length > PACKET_HEADER_SIZE);
         }
     }
 
