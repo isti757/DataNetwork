@@ -30,6 +30,7 @@ uint8_t pending_route_request_ttl[MAX_HOSTS_NUMBER];
 //-----------------------------------------------------------------------------
 //an array of route notifications(if 1 then already notified the TL)
 uint8_t route_notified[MAX_HOSTS_NUMBER];
+//a bitmap to find out if a route is discovered
 uint8_t routes[MAX_HOSTS_NUMBER];
 //-----------------------------------------------------------------------------
 // find the address in the routing table
@@ -69,9 +70,7 @@ static int whichlink(CnetAddr address) {
 // learn routing table TODO what about the best route?
 void learn_route_table(CnetAddr address, int hops, int link, int mtu, CnetTime total_delay,int req_id) {
     if (route_exists(address) == 0) {
-
         fprintf(routing_log,"Host %d learns about %d link %d\n",nodeinfo.address,address,link);
-
         int t = find_address(address);
         route_table[t].minhops = hops;
         route_table[t].minhop_link = link;
@@ -79,23 +78,11 @@ void learn_route_table(CnetAddr address, int hops, int link, int mtu, CnetTime t
         route_table[t].total_delay = total_delay;
         route_table[t].req_id = req_id;
         routes[address] = 1;
-
-
         fprintf(table_log,"Record: addr:%d, link:%d, mtu:%d,delay:%lld req_id:%d\n",address,
                 link,mtu,total_delay,req_id);
     }
 
 }
-
-//-----------------------------------------------------------------------------
-//check if reverse route exists
-//int exist_reverse_route(CnetAddr address, int link) {
-//    int t;
-//    for (t = 0; t < reverse_table_size; ++t)
-//        if (reverse_route[t].source == address && reverse_route[t].link==link)
-//            return (t);
-//    return -1;
-//}
 //-----------------------------------------------------------------------------
 //insert an item into the reverse route table
 int insert_reverse_route(CnetAddr source,CnetAddr dest, int link, int req_id) {
@@ -146,10 +133,10 @@ int find_forward_route(CnetAddr source,CnetAddr dest,int req_id) {
 }
 
 //-----------------------------------------------------------------------------
-// detect a link for outcoming message
+// detect a link for outgoing message
 int get_next_link_for_dest(CnetAddr destaddr) {
     // address not exists yet
-    if (route_exists(destaddr) == 0) {
+    if (route_exists(destaddr) == FALSE) {
         N_DEBUG("the address is not in route table\n");
         return -1;
     } else {
@@ -159,6 +146,7 @@ int get_next_link_for_dest(CnetAddr destaddr) {
     }
 }
 //-----------------------------------------------------------------------------
+//Find a request id of a discovered route
 int get_request_id_for_dest(CnetAddr dest) {
     if (route_exists(dest)) {
         int t = find_address(dest);
@@ -168,34 +156,33 @@ int get_request_id_for_dest(CnetAddr dest) {
         abort();
     }
 }
+//-----------------------------------------------------------------------------
+//Find a request id of a reverse route
 int get_request_id_reverse(CnetAddr source,CnetAddr dest) {
     for (int t = 0; t < reverse_table_size; ++t)
          if (reverse_route[t].source == source && reverse_route[t].dest==dest)
              return reverse_route[t].req_id;
     return -1;
 }
-
+//-----------------------------------------------------------------------------
+//Find a request id of a reverse route by src and dest
 int find_reverse_route_no_id(CnetAddr source,CnetAddr dest) {
     for (int t = 0; t < reverse_table_size; ++t)
          if (reverse_route[t].source == source && reverse_route[t].dest==dest)
              return reverse_route[t].reverse_link;
     return -1;
 }
-
 //-----------------------------------------------------------------------------
 // take a packet from the transport layer and send it to the destination
 void route(DATAGRAM dtg) {
-    N_DEBUG1("Perform routing to %d\n", dtg.dest);
-
+    //N_DEBUG1("Perform routing to %d\n", dtg.dest);
     int link = -1;
-
     //use the route table, direct route
     if (dtg.src == nodeinfo.address) {
         link = get_next_link_for_dest(dtg.dest);
         //the route is discovered by this node
         if (link != -1) {
             dtg.req_id = get_request_id_for_dest(dtg.dest);
-
             fprintf(routing_log,"Found a route in get_next_link_for_dest dest %d link %d\n",dtg.dest,link);
         } else {
             //find a reverse route
@@ -209,7 +196,7 @@ void route(DATAGRAM dtg) {
     } else {
         //send to a reverse route or a forward route.The datagram from another src
         if (dtg.req_id<0) {
-            fprintf(stderr,"Host %d, src %d, dest %d. rid=%d\n",nodeinfo.address,dtg.src,dtg.dest,dtg.req_id);
+            fprintf(stderr,"Host %d, src %d, dest %d. rid=%d rid<0\n",nodeinfo.address,dtg.src,dtg.dest,dtg.req_id);
             abort();
         }
         link = find_forward_route(dtg.src,dtg.dest,dtg.req_id);
@@ -222,11 +209,7 @@ void route(DATAGRAM dtg) {
             fprintf(routing_log,"Found a reverse route src %d, dest %d, link %d\n",
                     dtg.src,dtg.dest,link);
         }
-
     }
-
-
-
     if (link < 1) {
         fprintf(stderr,"in route(): no address for %d host %d\n", dtg.dest,nodeinfo.address);
         fprintf(routing_log,"in route(): no address for %d host %d\n", dtg.dest,nodeinfo.address);
@@ -235,31 +218,6 @@ void route(DATAGRAM dtg) {
         N_DEBUG2("in route(): send to link %d\n to address=%d\n", link, dtg.dest);
         send_packet_to_link(link, dtg);
     }
-}
-//-----------------------------------------------------------------------------
-void show_table(CnetEvent ev, CnetTimerID timer, CnetData data) {
-
-    //CNET_clear();
-//    N_DEBUG1("table_size=%d\n", route_table_size);
-//    N_DEBUG5("\n%14s %14s %14s %14s %14s\n", "destination", "min-hops",
-//             "minhop-link", "mtu", "time");
-//    for (int t = 0; t < route_table_size; ++t) {
-//        N_DEBUG5("%14d %14d %14ld %14ld %14llu\n", (int) route_table[t].address,
-//                 route_table[t].minhops, route_table[t].minhop_link,
-//                 route_table[t].min_mtu, route_table[t].total_delay);
-//    }
-
-//    printf("history_table_size=%d\n",history_table_size);
-//    printf("%14s %14s\n","source","id");
-//    for (int t1 = 0; t1 < history_table_size; ++t1) {
-//        printf("%14d %14d\n", (int) history_table[t1].source,history_table[t1].req_id);
-//    }
-
-//    printf("reverse_table_size=%d\n",reverse_table_size);
-//    printf("%14s %14s\n","source","link");
-//    for (int t2 = 0; t2 < reverse_table_size; ++t2) {
-//        printf("%14d %14d\n", (int) reverse_route[t2].source,reverse_route[t2].link);
-//    }
 }
 //-----------------------------------------------------------------------------
 //find an item in the local history
@@ -282,7 +240,8 @@ int insert_local_history(CnetAddr source,CnetAddr dest, int req_id) {
     history_table[history_table_size].dest = dest;
     return (history_table_size++);
 }
-
+//-----------------------------------------------------------------------------
+//Check if a host is a neighbour
 int is_neighbour(CnetAddr address) {
     for (int t = 0; t < route_table_size; ++t) {
         if (route_table[t].address == address && route_table[t].minhops==0) {
@@ -310,7 +269,7 @@ void do_routing(int link, DATAGRAM datagram) {
         }
         // insert into local history table
         insert_local_history(r_packet.source,r_packet.dest,r_packet.req_id);
-
+        //set up mtu and delays
         if (r_packet.min_mtu==0) {
             r_packet.min_mtu = linkinfo[link].mtu;
         } else {
@@ -460,7 +419,7 @@ void send_route_request(CnetAddr destaddr, int time_to_live) {
 }
 //-----------------------------------------------------------------------------
 // detect fragmentation size for the specified destination
-int get_mtu(CnetAddr address) {
+int get_mtu(CnetAddr address, int need_send_mtu_request) {
     if (address!=nodeinfo.address) {
         if (route_exists(address) == 1) {
             int t = find_address(address);
@@ -468,24 +427,17 @@ int get_mtu(CnetAddr address) {
             return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE - DL_FRAME_HEADER_SIZE;
         } else {
             fprintf(routing_log,"Host %d getting mtu for %d, sending request\n",nodeinfo.address,address);
-            send_route_request(address,1);
+            if (need_send_mtu_request==TRUE) {
+                send_route_request(address,1);
+            }
             return -1;
         }
     } else {
         return -1;
     }
 }
-int read_mtu(CnetAddr address) {
-    if (route_exists(address) == 1) {
-        int t = find_address(address);
-        return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE - DL_FRAME_HEADER_SIZE;
-    } else {
-        return -1;
-    }
-}
-
-
 //-----------------------------------------------------------------------------
+//Resend a route request
 void route_request_resend(CnetEvent ev, CnetTimerID timer, CnetData data) {
     int address = (int) data;
     N_DEBUG1("Checking route request for %d\n", address);
@@ -506,13 +458,7 @@ void init_routing() {
     reverse_table_size = 0;
     forward_route = (FORWARD_ROUTE_TABLE*)malloc(sizeof(FORWARD_ROUTE_TABLE));
     forward_table_size = 0;
-
-
     route_req_id = 0;
-
-    CHECK(CNET_set_handler(EV_DEBUG1,show_table, 0));
-    CHECK(CNET_set_debug_string( EV_DEBUG1, "NL info"));
-
     // init route requests
     for (int i = 0; i < MAX_HOSTS_NUMBER; i++) {
         pending_route_requests[i] = NULLTIMER;
@@ -542,6 +488,7 @@ void init_routing() {
 
 }
 //-----------------------------------------------------------------------------
+//Get a propagation delay on the way to destaddr
 int get_propagation_delay(CnetAddr destaddr) {
     if (route_exists(destaddr)) {
         int t = find_address(destaddr);
@@ -555,5 +502,7 @@ int get_propagation_delay(CnetAddr destaddr) {
 void shutdown_routing() {
     free(route_table);
     free(history_table);
+    free(reverse_route);
+    free(forward_route);
 }
 //-----------------------------------------------------------------------------

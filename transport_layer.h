@@ -1,10 +1,3 @@
-/*
- * transport_layer.h
- *
- *  Created on: Jul 29, 2011
- *      Author: isti
- */
-
 #ifndef TRANSPORT_LAYER_H_
 #define TRANSPORT_LAYER_H_
 

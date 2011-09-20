@@ -25,16 +25,14 @@ void histogram() {
 //-----------------------------------------------------------------------------
 // write an outcoming packet into network layer
 void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet) {
-    N_DEBUG("Call write_network\n");
+    //N_DEBUG("Call write_network\n");
     DATAGRAM dtg = alloc_datagram((kind | __TRANSPORT__),nodeinfo.address,address,packet,length);
-    dtg.declared_mtu = read_mtu(address);
+    dtg.declared_mtu = get_mtu(address,FALSE);
     size_t packet_length = length;
     //copy the payload
     memcpy(&(dtg.payload), packet, packet_length);
 
-
     fprintf(routing_log,"Send DATA to %d\n",dtg.dest);
-
     //route
     route(dtg);
 }
@@ -43,20 +41,19 @@ void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet)
 void read_network(int link, size_t length, char * datagram) {
     DATAGRAM dtg;
     memcpy(&dtg, datagram, length);
-    N_DEBUG1("Dispatching %d...\n",dtg.kind);
+    //N_DEBUG1("Dispatching %d...\n",dtg.kind);
     //Dispatch the datagram
     if (is_kind(dtg.kind,__DISCOVER__))
         do_discovery(link, dtg);
     if (is_kind(dtg.kind,__ROUTING__))
         do_routing(link, dtg);
     if (is_kind(dtg.kind,__TRANSPORT__)) {
-        N_DEBUG("received datagram on transport level\n");
+        //N_DEBUG("received datagram on transport level\n");
         PACKET pkt;
         size_t len_to_cpy = dtg.length;
         memcpy((char*)&pkt, dtg.payload, len_to_cpy);
         if ((CnetAddr)(dtg.dest) != nodeinfo.address) {
-            N_DEBUG("forwarding..\n");
-
+            //N_DEBUG("forwarding..\n");
             fprintf(routing_log,"Forward DATA from %d dest %d\n",dtg.src,dtg.dest);
             route(dtg);
             packets_forwarded_total++;

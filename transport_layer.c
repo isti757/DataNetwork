@@ -1,9 +1,3 @@
-/*
- * transport_layer.c
- *
- *  Created on: Jul 30, 2011
- *      Author: isti
- */
 #include <assert.h>
 #include <limits.h>
 #include "cnet.h"
@@ -11,7 +5,7 @@
 #include "debug.h"
 #include "routing.h"
 #include "datagram.h"
-//#include "compression.h"
+#include "compression.h"
 #include "transport_layer.h"
 
 //-----------------------------------------------------------------------------
@@ -167,16 +161,16 @@ static void destroy_sliding_window() {
 //-----------------------------------------------------------------------------
 // compression of payload
 static void init_compression() {
-    //in = malloc(sizeof(unsigned char)*IN_LEN);
-    // init compression
-//    if (lzo_init() != LZO_E_OK) {
-//        fprintf(stderr, "internal error - lzo_init() failed !!!\n");
-//        abort();
-//    }
+    in = malloc(sizeof(unsigned char)*IN_LEN);
+    //init compression
+    if (lzo_init() != LZO_E_OK) {
+        fprintf(stderr, "internal error - lzo_init() failed !!!\n");
+        abort();
+    }
 }
 //-----------------------------------------------------------------------------
 static void destroy_compression() {
-    //free(in);
+    free(in);
 }
 //-----------------------------------------------------------------------------
 // finds a sliding window for the corresponding address and returns a
@@ -378,7 +372,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         FRAGMENT *frg = queue_peek(swin[table_ind].fragment_queue, &frag_len);
 
         // make sure that the path and mtu are discovered
-        int mtu = get_mtu(frg->dest);
+        int mtu = get_mtu(frg->dest,TRUE);
         if(mtu == -1) {
              CNET_disable_application(dest);
              swin[table_ind].flush_queue_timer = NULLTIMER;
@@ -672,31 +666,32 @@ void handle_data(msg_type_t kind, uint16_t length, CnetAddr src, PACKET pkt, int
 
         T_DEBUG2("^\t\tto application len: %llu seq: %d\n", len, swin[table_ind].frameexpected);
 
-//        fprintf(logfile_send_receive, "recv: src: %d dest: %d time: %u seq: %u\n", src, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)swin[table_ind].frameexpected);
+        //fprintf(logfile_send_receive, "recv: src: %d dest: %d time: %u seq: %u\n", src, nodeinfo.address, (unsigned)(nodeinfo.time_in_usec), (unsigned)swin[table_ind].frameexpected);
 
-//        lzo_uint new_len = len, out_len = len;
-//        int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
-//                                 out_len,in,&new_len,NULL);
-//        if (r != LZO_E_OK) {
-//            // this should NEVER happen
-//            fprintf(stderr,"internal error - decompression failed: %d\n", r);
-//            abort();
-//        }
-//        size_t nlen = new_len;
+        lzo_uint new_len = len, out_len = len;
+        int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
+                                 out_len,in,&new_len,NULL);
+        if (r != LZO_E_OK) {
+            // this should NEVER happen
+            fprintf(stderr,"internal error - decompression failed: %d\n", r);
+            abort();
+        }
+        size_t nlen = new_len;
         // push the message to application layer
-        CNET_write_application((char*)swin[table_ind].inpacket[frameexpected_mod].msg, &len);
+        CNET_write_application((char*)in, &nlen);
+        //CNET_write_application((char*)swin[table_ind].inpacket[frameexpected_mod].msg, &nlen);
         if(cnet_errno != ER_OK) {
             CNET_perror("Write app: ");
 //            fprintf(stderr, "length passed: %llu\n", len);
-            fprintf(stderr, "reported messages: %d\n", reported_messages);
-            fprintf(stderr, "from %d to %d seq: %d\n", src, nodeinfo.address, frameexpected_mod);
-            fprintf(stderr, "frameexpected: %d\n", swin[table_ind].frameexpected);
-            fprintf(stderr, "toofar: %d\n", swin[table_ind].toofar);
-            fprintf(stderr, "frameexpected_mod: %d\n", frameexpected_mod);
-            fprintf(stderr, "NRBUFS: %d %u %lu\n", (int)NRBUFS, (unsigned)NRBUFS, (long unsigned int)NRBUFS);
-            fprintf(stderr, "MAXFR: %d %u\n", (int)((int)MAXFR), (unsigned)((unsigned)MAXFR));
-            fprintf(stderr, "MAXSEQ: %d %u\n", (int)MAXSEQ, (unsigned)MAXSEQ);
-            fprintf(stderr, "MAXPL: %d %u\n", (int)MAXPL, (unsigned)MAXPL);
+            //fprintf(stderr, "reported messages: %d\n", reported_messages);
+            //fprintf(stderr, "from %d to %d seq: %d\n", src, nodeinfo.address, frameexpected_mod);
+            //fprintf(stderr, "frameexpected: %d\n", swin[table_ind].frameexpected);
+            //fprintf(stderr, "toofar: %d\n", swin[table_ind].toofar);
+            //fprintf(stderr, "frameexpected_mod: %d\n", frameexpected_mod);
+            //fprintf(stderr, "NRBUFS: %d %u %lu\n", (int)NRBUFS, (unsigned)NRBUFS, (long unsigned int)NRBUFS);
+           // fprintf(stderr, "MAXFR: %d %u\n", (int)((int)MAXFR), (unsigned)((unsigned)MAXFR));
+           // fprintf(stderr, "MAXSEQ: %d %u\n", (int)MAXSEQ, (unsigned)MAXSEQ);
+            //fprintf(stderr, "MAXPL: %d %u\n", (int)MAXPL, (unsigned)MAXPL);
             dump_sliding_window();
             CNET_exit("transport layer", "write app", 654);
         }
@@ -785,7 +780,7 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     swin[table_ind].adaptive_timeout *= 1.5;
 
     // find out where to send and how to fragment
-    swin_mtu_t mtu = read_mtu(swin[table_ind].address);
+    swin_mtu_t mtu = get_mtu(swin[table_ind].address,FALSE);
 
     // segment id and fraction of packet transmitted
     swin_frag_ind_t segid = 0;
@@ -833,18 +828,20 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
 
     CnetAddr destaddr;
     size_t len = frg.len;
-    CHECK(CNET_read_application(&destaddr, frg.pkt.msg, &len));
+    //CHECK(CNET_read_application(&destaddr, frg.pkt.msg, &len));
+    CHECK(CNET_read_application(&destaddr, in, &len));
 
-//    // compression
-//    lzo_uint in_len = len, out_len;
-//    int r = lzo1x_1_compress(in,in_len,(unsigned char *)frg.pkt.msg,&out_len,wrkmem);
-//    if (r != LZO_E_OK) {
-//        fprintf(stderr,"internal error - compression failed: %d\n", r);
-//        abort();
-//    }
+    // compression
+    lzo_uint in_len = len, out_len;
+    int r = lzo1x_1_compress(in,in_len,(unsigned char *)frg.pkt.msg,&out_len,wrkmem);
+    if (r != LZO_E_OK) {
+        fprintf(stderr,"internal error - compression failed: %d\n", r);
+        abort();
+    }
 
     // initialize a fragment
-    frg.len = len;
+    frg.len = out_len;
+    //frg.len = len;
     frg.kind = __DATA__;
     frg.dest = destaddr;
     frg.pkt.seqno = -1;
@@ -905,7 +902,7 @@ void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
     if (sg == MTU_DISCOVERED) {
         uint8_t address = (uint8_t)data;
         int table_ind = find_swin(address);
-        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
+        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, FLUSH_RESTART, (CnetData) address);
         CNET_enable_application(address);
     }
 }
