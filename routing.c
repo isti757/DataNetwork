@@ -46,8 +46,10 @@ static int find_address(CnetAddr address) {
     for (int t = 0; t < route_table_size; ++t)
         if (route_table[t].address == address)
             return (t);
-    route_table = (ROUTE_TABLE *) realloc((char *) route_table,
-                                          (route_table_size + 1) * sizeof(ROUTE_TABLE));
+
+    size_t to_realloc = (route_table_size + 1) * sizeof(ROUTE_TABLE);
+    route_table = realloc((char *) route_table, to_realloc);
+
     route_table[route_table_size].address = address;
     route_table[route_table_size].minhops = 0;
     route_table[route_table_size].minhop_link = -1;
@@ -73,7 +75,8 @@ static int whichlink(CnetAddr address) {
 }
 //-----------------------------------------------------------------------------
 // learn routing table TODO what about the best route?
-void learn_route_table(CnetAddr address, int hops, int link, int mtu, CnetTime total_delay,int req_id) {
+void learn_route_table(CnetAddr address, int hops, int link, int mtu,
+                       CnetTime total_delay, int req_id) {
     if (route_exists(address) == 0) {
         int t = find_address(address);
         route_table[t].minhops = hops;
@@ -204,8 +207,8 @@ int find_local_history(CnetAddr source,CnetAddr dest, int req_id) {
 //-----------------------------------------------------------------------------
 // insert an item in the local history
 int insert_local_history(CnetAddr source,CnetAddr dest, int req_id) {
-    history_table = (HISTORY_TABLE *) realloc((char *) history_table,
-                                              (history_table_size + 1) * sizeof(HISTORY_TABLE));
+    size_t to_realloc = (history_table_size + 1) * sizeof(HISTORY_TABLE);
+    history_table = (HISTORY_TABLE *) realloc((char *) history_table, to_realloc);
     history_table[history_table_size].source = source;
     history_table[history_table_size].req_id = req_id;
     history_table[history_table_size].dest = dest;
@@ -236,20 +239,20 @@ void do_routing(int link, DATAGRAM datagram) {
             break;
         }
         // insert into local history table
-        insert_local_history(r_packet.source,r_packet.dest,r_packet.req_id);
+        insert_local_history(r_packet.source, r_packet.dest, r_packet.req_id);
 
         // set up mtu and delays
-        if (r_packet.min_mtu==0) {
+        if (r_packet.min_mtu == 0) {
             r_packet.min_mtu = linkinfo[link].mtu;
         } else {
             if (r_packet.min_mtu > linkinfo[link].mtu) {
                 r_packet.min_mtu = linkinfo[link].mtu;
             }
         }
-        if (r_packet.total_delay==0) {
+        if (r_packet.total_delay == 0) {
             r_packet.total_delay = linkinfo[link].propagationdelay;
         } else {
-            r_packet.total_delay +=linkinfo[link].propagationdelay;
+            r_packet.total_delay += linkinfo[link].propagationdelay;
         }
         r_packet.hop_count = r_packet.hop_count + 1;
 
@@ -267,16 +270,15 @@ void do_routing(int link, DATAGRAM datagram) {
             } else {
                 // if no route rebroadcast
                 uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
-                DATAGRAM rreq_datagram = alloc_datagram(__ROUTING__, r_packet.source,
-                                                   r_packet.dest, (char*) &r_packet,
-                                                   request_size);
-                insert_reverse_route(r_packet.source,r_packet.dest,link,r_packet.req_id);
+                DATAGRAM rreq_datagram =
+                        alloc_datagram(__ROUTING__, r_packet.source,
+                                       r_packet.dest, (char*) &r_packet, request_size);
+                insert_reverse_route(r_packet.source, r_packet.dest,link, r_packet.req_id);
                 broadcast_packet(rreq_datagram,link);
             }
-
         } else {
             // learn the route table
-            insert_reverse_route(r_packet.source,r_packet.dest,link,r_packet.req_id);
+            insert_reverse_route(r_packet.source, r_packet.dest, link, r_packet.req_id);
 
             // send RREP
             ROUTE_PACKET rrep_packet;
@@ -289,9 +291,9 @@ void do_routing(int link, DATAGRAM datagram) {
             rrep_packet.total_delay = linkinfo[link].propagationdelay;
             rrep_packet.hop_count = 0;
             uint16_t request_size = ROUTE_PACKET_SIZE(rrep_packet);
-            DATAGRAM rrep_datagram = alloc_datagram(__ROUTING__, r_packet.dest,
-                                               r_packet.source, (char*) &rrep_packet,
-                                               request_size);
+            DATAGRAM rrep_datagram =
+                    alloc_datagram(__ROUTING__, r_packet.dest, r_packet.source,
+                                   (char*) &rrep_packet, request_size);
 
             send_packet_to_link(link,rrep_datagram);
         }
@@ -301,9 +303,10 @@ void do_routing(int link, DATAGRAM datagram) {
 
         if (nodeinfo.address != r_packet.source) {
             // insert into the forward table
-            insert_forward_route(r_packet.source,r_packet.dest,link,r_packet.req_id);
+            insert_forward_route(r_packet.source, r_packet.dest, link, r_packet.req_id);
             // find a reverse link
-            int reverse_link = find_reverse_route(r_packet.source,r_packet.dest,r_packet.req_id);
+            int reverse_link = find_reverse_route(r_packet.source, r_packet.dest,
+                                                  r_packet.req_id);
             if (reverse_link == -1) {
                 abort();
             }
@@ -312,13 +315,14 @@ void do_routing(int link, DATAGRAM datagram) {
             }
             r_packet.total_delay += linkinfo[reverse_link].propagationdelay;
             uint16_t request_size = ROUTE_PACKET_SIZE(r_packet);
-            DATAGRAM rrep_datagram = alloc_datagram(__ROUTING__, r_packet.dest,
-                                               r_packet.source, (char*) &r_packet,
-                                               request_size);
+            DATAGRAM rrep_datagram =
+                    alloc_datagram(__ROUTING__, r_packet.dest, r_packet.source,
+                                   (char*) &r_packet, request_size);
             send_packet_to_link(reverse_link,rrep_datagram);
 
         } else {
-            learn_route_table(r_packet.dest,r_packet.hop_count,link,r_packet.min_mtu,r_packet.total_delay,r_packet.req_id);
+            learn_route_table(r_packet.dest, r_packet.hop_count, link, r_packet.min_mtu,
+                              r_packet.total_delay, r_packet.req_id);
             pending_route_requests[r_packet.dest]=NULLTIMER;
             route_notified[r_packet.dest] += 1;
             if (route_notified[r_packet.dest] == 1) {
@@ -327,7 +331,6 @@ void do_routing(int link, DATAGRAM datagram) {
         }
         break;
     }
-
 }
 //-----------------------------------------------------------------------------
 // send a route request
@@ -367,14 +370,12 @@ int get_mtu(CnetAddr address, int need_send_mtu_request) {
             int t = find_address(address);
             return route_table[t].min_mtu - PACKET_HEADER_SIZE - DATAGRAM_HEADER_SIZE - DL_FRAME_HEADER_SIZE;
         } else {
-            if (need_send_mtu_request==TRUE) {
+            if (need_send_mtu_request==TRUE)
                 send_route_request(address,1);
-            }
             return -1;
         }
-    } else {
+    } else
         return -1;
-    }
 }
 //-----------------------------------------------------------------------------
 // resend a route request
@@ -413,9 +414,8 @@ int get_propagation_delay(CnetAddr destaddr) {
     if (route_exists(destaddr)) {
         int t = find_address(destaddr);
         return route_table[t].total_delay;
-    } else {
+    } else
         return -1;
-    }
 }
 //-----------------------------------------------------------------------------
 void shutdown_routing() {

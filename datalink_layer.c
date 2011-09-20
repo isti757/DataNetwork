@@ -28,9 +28,9 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
     CHECK(CNET_read_physical(&link, (char *)&frame, &len));
 
     // compare the checksum
-    uint32_t checksum = frame.checksum;
     size_t dtg_len = len - DL_FRAME_HEADER_SIZE;
-    uint32_t checksum_to_compare = CNET_crc32((unsigned char *)&frame.data, dtg_len);
+    uint16_t checksum = frame.checksum;
+    uint16_t checksum_to_compare = CNET_ccitt((unsigned char *)&frame.data, dtg_len);
     if (checksum_to_compare != checksum) {
         return;
     }
@@ -40,11 +40,11 @@ void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
 }
 //-----------------------------------------------------------------------------
 // write a frame to the link
-void write_datalink(int link, char *datagram, uint32_t checksum, uint32_t length) {
+void write_datalink(int link, char *datagram, uint32_t length) {
     DTG_CONTAINER container;
     container.len = length;
     container.link = link;
-    container.checksum = checksum;
+    container.checksum = CNET_ccitt((unsigned char *) datagram, (size_t)length);
 
     size_t datagram_length = length;
     memcpy(&container.data, datagram, datagram_length);

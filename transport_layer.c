@@ -5,13 +5,14 @@
  *      Author: isti
  */
 #include <limits.h>
+
 #include "cnet.h"
-#include "log.h"
-#include "debug.h"
-#include "routing.h"
 #include "datagram.h"
+#include "network_layer.h"
+//#include "routing.h"
 //#include "compression.h"
 #include "transport_layer.h"
+#include "application_layer.h"
 
 //-----------------------------------------------------------------------------
 // statistics
@@ -47,21 +48,6 @@ static void destroy_sliding_window() {
         queue_free(swin[i].fragment_queue);
     }
     free(swin);
-}
-//-----------------------------------------------------------------------------
-// compression of payload
-static void init_compression() {
-    //in = malloc(sizeof(unsigned char)*IN_LEN);
-    // init compression
-//    if (lzo_init() != LZO_E_OK) {
-//        fprintf(stderr, "internal error - lzo_init() failed !!!\n");
-//        abort();
-//    }
-}
-//-----------------------------------------------------------------------------
-// free compression variables
-static void destroy_compression() {
-    //free(in);
 }
 //-----------------------------------------------------------------------------
 // finds a sliding window for the corresponding address and returns a
@@ -185,7 +171,8 @@ static void set_timeout(swin_addr_t dst, msg_len_t pkt_len, PACKET pkt, int tabl
     // set timeout based on first fragment only
     if (swin[table_ind].timers[seqno] == NULLTIMER) {
         CnetData data = (dst << SEQNO_WIDTH) | seqno;
-        CnetTime timeout = 2*swin[table_ind].adaptive_timeout+4*swin[table_ind].adaptive_deviation;
+        CnetTime timeout = 2*swin[table_ind].adaptive_timeout+
+                4*swin[table_ind].adaptive_deviation;
         swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, timeout, data);
     }
 }
@@ -301,7 +288,8 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
     }
     // callback the flush_queue function
     if (queue_nitems(swin[table_ind].fragment_queue) != 0)
-        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, FLUSH_RESTART, dest);
+        swin[table_ind].flush_queue_timer =
+                CNET_start_timer(EV_TIMER2, FLUSH_RESTART, dest);
     else
         swin[table_ind].flush_queue_timer = NULLTIMER;
 }
@@ -396,6 +384,7 @@ void handle_nack(CnetAddr src, int table_ind) {
         CHECK(CNET_stop_timer(swin[table_ind].timers[seqno]));
     swin[table_ind].timers[seqno] = NULLTIMER;
 
+    // will be multiplied by Karn's constant in ack_timeout
     swin[table_ind].adaptive_timeout /= KARN_CONSTANT;
 
     CnetData data = (src << SEQNO_WIDTH) | seqno;
@@ -453,8 +442,9 @@ void handle_data(msg_type_t kind, msg_len_t length, CnetAddr src, PACKET pkt, in
         swin[table_ind].arrivedfrags[pkt_seqno_mod][pkt.segid] = TRUE;
 
         size_t mess_len = length-PACKET_HEADER_SIZE;
-        uint64_t offset = (uint64_t)swin[table_ind].mtusize[pkt_seqno_mod]*(uint64_t)pkt.segid;
-        memcpy((char*) swin[table_ind].inpacket[pkt_seqno_mod].msg+offset, (char*) pkt.msg, mess_len);
+        uint64_t offset = swin[table_ind].mtusize[pkt_seqno_mod]*pkt.segid;
+        memcpy((char*)swin[table_ind].inpacket[pkt_seqno_mod].msg+offset,
+               (char*) pkt.msg, mess_len);
 
         swin[table_ind].inlengths[pkt_seqno_mod] += (length - PACKET_HEADER_SIZE);
     }
@@ -483,18 +473,8 @@ void handle_data(msg_type_t kind, msg_len_t length, CnetAddr src, PACKET pkt, in
         swin_seqno_t frameexpected_mod = swin[table_ind].frameexpected % NRBUFS;
         size_t len = swin[table_ind].inlengths[frameexpected_mod];
 
-        // uncompress the message
-//        lzo_uint new_len = len, out_len = len;
-//        int r = lzo1x_decompress((unsigned char *)swin[table_ind].inpacket[frameexpected_mod].msg,
-//                                 out_len,in,&new_len,NULL);
-//        if (r != LZO_E_OK) {
-//            // this should NEVER happen
-//            fprintf(stderr,"internal error - decompression failed: %d\n", r);
-//            abort();
-//        }
-//        size_t nlen = new_len;
         // push the message to application layer
-        CHECK(CNET_write_application((char*)swin[table_ind].inpacket[frameexpected_mod].msg, &len));
+        read_application((char*)swin[table_ind].inpacket[frameexpected_mod].msg, len);
 
         // reset the variables for next packet
         reset_receiver_window(frameexpected_mod, table_ind);
@@ -510,7 +490,8 @@ void handle_data(msg_type_t kind, msg_len_t length, CnetAddr src, PACKET pkt, in
     if(arrived_frame == TRUE || prev_last_frag < swin[table_ind].lastfrag[pkt_seqno_mod]) {
         if(swin[table_ind].separate_ack_timer != NULLTIMER)
             CHECK(CNET_stop_timer(swin[table_ind].separate_ack_timer));
-        swin[table_ind].separate_ack_timer = CNET_start_timer(EV_TIMER3, SEPARATE_ACK_TIMEOUT, src);
+        swin[table_ind].separate_ack_timer =
+                CNET_start_timer(EV_TIMER3, SEPARATE_ACK_TIMEOUT, src);
     }
 }
 //-----------------------------------------------------------------------------
@@ -620,21 +601,9 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
 //-----------------------------------------------------------------------------
 // read incoming message from application to transport layer and put it into
 // the waiting queue, perform compression
-void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
+void write_transport(CnetAddr destaddr, char* msg, size_t len) {
     FRAGMENT frg;
-    frg.len = MAX_MESSAGE_SIZE;
-
-    CnetAddr destaddr;
-    size_t len = frg.len;
-    CHECK(CNET_read_application(&destaddr, frg.pkt.msg, &len));
-
-//    // compression
-//    lzo_uint in_len = len, out_len;
-//    int r = lzo1x_1_compress(in,in_len,(unsigned char *)frg.pkt.msg,&out_len,wrkmem);
-//    if (r != LZO_E_OK) {
-//        fprintf(stderr,"internal error - compression failed: %d\n", r);
-//        abort();
-//    }
+    memcpy((char*)frg.pkt.msg, (char*)msg, len);
 
     // initialize a fragment
     frg.len = len;
@@ -651,14 +620,35 @@ void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data) {
         CHECK(CNET_disable_application(destaddr));
 
     if(queue_nitems(swin[table_ind].fragment_queue) == 0)
-        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, FLUSH_RESTART, destaddr);
+        swin[table_ind].flush_queue_timer =
+                CNET_start_timer(EV_TIMER2, FLUSH_RESTART, destaddr);
 
     size_t frg_len = FRAGMENT_HEADER_SIZE+PACKET_HEADER_SIZE+frg.len;
     queue_add(swin[table_ind].fragment_queue, &frg, frg_len);
 }
 //-----------------------------------------------------------------------------
-// clean all allocated memory
-static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
+void init_transport() {
+    init_sliding_window();
+
+    CHECK(CNET_set_handler( EV_TIMER1, ack_timeout, 0));
+    CHECK(CNET_set_handler( EV_TIMER2, flush_queue, 0));
+    CHECK(CNET_set_handler( EV_TIMER3, separate_ack_timeout, 0));
+}
+//-----------------------------------------------------------------------------
+void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
+    if (sg == DISCOVERY_FINISHED) {
+        CNET_enable_application(ALLNODES);
+    }
+    if (sg == MTU_DISCOVERED) {
+        swin_addr_t address = (swin_addr_t)data;
+        int table_ind = find_swin(address);
+        swin[table_ind].flush_queue_timer =
+                CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
+        CNET_enable_application(address);
+    }
+}
+//-----------------------------------------------------------------------------
+void shutdown_transport() {
     fprintf(stderr, "address: %d\n", nodeinfo.address);
     fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
     fprintf(stderr, "\tretransmitted pack: %d\n", packets_retransmitted_total);
@@ -670,33 +660,7 @@ static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
     fprintf(stderr, "\tdeviation timer: %f\n",((double)average_deviation/(double)observed_packets));
     fprintf(stderr, "\tmeasured timer: %f\n", ((double)average_measured / (double) observed_packets));
     fprintf(stderr, "\tobserved timer: %f\n", ((double)average_observed / (double) observed_packets));
-    destroy_compression();
     destroy_sliding_window();
     shutdown_network();
 }
 //-----------------------------------------------------------------------------
-void init_transport() {
-    init_compression();
-    init_sliding_window();
-
-    CHECK(CNET_set_handler( EV_TIMER1, ack_timeout, 0));
-    CHECK(CNET_set_handler( EV_TIMER2, flush_queue, 0));
-    CHECK(CNET_set_handler( EV_TIMER3, separate_ack_timeout, 0));
-    CHECK(CNET_set_handler( EV_SHUTDOWN, shutdown, 0));
-    CHECK(CNET_set_handler( EV_APPLICATIONREADY, write_transport, 0));
-}
-//-----------------------------------------------------------------------------
-void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
-    if (sg == DISCOVERY_FINISHED) {
-        CNET_enable_application(ALLNODES);
-
-    }
-    if (sg == MTU_DISCOVERED) {
-        swin_addr_t address = (swin_addr_t)data;
-        int table_ind = find_swin(address);
-        swin[table_ind].flush_queue_timer = CNET_start_timer(EV_TIMER2, 1, (CnetData) address);
-        CNET_enable_application(address);
-    }
-}
-//-----------------------------------------------------------------------------
-

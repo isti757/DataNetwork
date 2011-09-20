@@ -13,22 +13,26 @@
 #include "datalink_layer.h"
 #include "network_layer.h"
 #include "transport_layer.h"
+#include "application_layer.h"
 #include "routing.h"
 #include "discovery.h"
 
 #include "datalink_layer.c"
 #include "network_layer.c"
 #include "transport_layer.c"
+#include "application_layer.c"
 #include "routing.c"
 #include "discovery.c"
 
 //-----------------------------------------------------------------------------
 EVENT_HANDLER(reboot_node) {
-    //init the datalink layer
+    // init the datalink layer
     init_datalink();
-    //init the network layer
+    // init the network layer
     init_network();
-    //init the transport layer
+    // init the transport layer
     init_transport();
+    // init the transport layer
+    init_application();
 }
 //-----------------------------------------------------------------------------

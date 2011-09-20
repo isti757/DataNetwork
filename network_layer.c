@@ -83,10 +83,9 @@ void send_packet(CnetAddr addr, DATAGRAM datagram) {
 // send a packet to the link
 void send_packet_to_link(int link, DATAGRAM datagram) {
     size_t size = DATAGRAM_SIZE(datagram);
-    // compute the checksumm
-    uint32_t checksum = CNET_crc32((unsigned char *) &datagram, size);
+
     // send packet down to link layer
-    write_datalink(link, (char *) &datagram, checksum, size);
+    write_datalink(link, (char *) &datagram, size);
 }
 //-----------------------------------------------------------------------------
 // broadcast datagram to all links(excluded one)

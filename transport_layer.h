@@ -1,3 +1,9 @@
+/*
+ * transport_layer.h
+ *
+ *  Created on: Aug 30, 2011
+ *      Author: isti
+ */
 #ifndef TRANSPORT_LAYER_H_
 #define TRANSPORT_LAYER_H_
 
@@ -82,7 +88,7 @@ typedef struct sliding_window {
 extern void init_transport();
 //-----------------------------------------------------------------------------
 // read outgoing message from application to transport layer
-extern void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
+extern void write_transport(CnetAddr destaddr, char* msg, size_t len);
 //-----------------------------------------------------------------------------
 // write incoming message from network to transport
 extern void read_transport(msg_type_t kind, msg_len_t len, CnetAddr src, char* pkt);
@@ -92,5 +98,7 @@ extern void signal_transport(SIGNALKIND sg, SIGNALDATA data);
 // private functions:
 extern void ack_timeout(CnetEvent ev, CnetTimerID ti, CnetData data);
 //-----------------------------------------------------------------------------
-
+// clean the memory
+extern void shutdown_transport();
+//-----------------------------------------------------------------------------
 #endif /* TRANSPORT_LAYER_H_ */
