@@ -7,12 +7,11 @@
 
 #include <cnet.h>
 
-#include "compression.h"
 #include "transport_layer.h"
 #include "application_layer.h"
 
-#define APPLICATION_COMPRESSION
-
+#ifdef APPLICATION_COMPRESSION
+#include "compression.h"
 //-----------------------------------------------------------------------------
 // compression of payload
 static void init_compression() {
@@ -28,6 +27,8 @@ static void init_compression() {
 static void destroy_compression() {
     free(in);
 }
+#endif
+
 //-----------------------------------------------------------------------------
 void read_application(char* msg, size_t len) {
 #ifdef APPLICATION_COMPRESSION
@@ -71,12 +72,16 @@ void write_application(CnetEvent ev, CnetTimerID timer, CnetData data) {
 //-----------------------------------------------------------------------------
 // clean all allocated memory
 static void shutdown(CnetEvent ev, CnetTimerID t1, CnetData data) {
+#ifdef APPLICATION_COMPRESSION
     destroy_compression();
+#endif
     shutdown_transport();
 }
 //-----------------------------------------------------------------------------
 void init_application() {
+#ifdef APPLICATION_COMPRESSION
     init_compression();
+#endif
     CHECK(CNET_set_handler( EV_SHUTDOWN, shutdown, 0));
     CHECK(CNET_set_handler( EV_APPLICATIONREADY, write_application, 0));
 }
