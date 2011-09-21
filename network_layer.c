@@ -32,8 +32,9 @@ void histogram() {
 void write_network(uint8_t kind, CnetAddr address,uint16_t length, char* packet) {
     DATAGRAM dtg = alloc_datagram((kind | __TRANSPORT__), nodeinfo.address,
                                   address, packet,length);
-    size_t packet_length = length;
+
     //copy the payload
+    size_t packet_length = length;
     memcpy(&(dtg.payload), packet, packet_length);
     route(dtg);
 }
@@ -82,9 +83,8 @@ void send_packet(CnetAddr addr, DATAGRAM datagram) {
 //-----------------------------------------------------------------------------
 // send a packet to the link
 void send_packet_to_link(int link, DATAGRAM datagram) {
-    size_t size = DATAGRAM_SIZE(datagram);
-
     // send packet down to link layer
+    size_t size = DATAGRAM_SIZE(datagram);
     write_datalink(link, (char *) &datagram, size);
 }
 //-----------------------------------------------------------------------------

@@ -34,7 +34,7 @@ typedef uint8_t  swin_bool_t;        // boolean type
 
 #define MAXSEQ      65535 //USHRT_MAX
 #define NRBUFS      (1<<(NBITS-1))
-// boolean variable
+// boolean variables
 #define FALSE       0
 #define TRUE        1
 //-----------------------------------------------------------------------------
@@ -43,7 +43,7 @@ typedef uint8_t  swin_bool_t;        // boolean type
 #define SEPARATE_ACK_TIMEOUT 10 // 100micro seconds
 //-----------------------------------------------------------------------------
 // adaptive timeouts
-#define KARN_CONSTANT 2.0                  // congestion
+#define KARN_CONSTANT 1.3                  // congestion
 #define LEARNING_RATE 0.125                // flow
 #define SLOWDOWN_RATE 1.2
 #define BETA          LEARNING_RATE

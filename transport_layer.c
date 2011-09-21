@@ -6,6 +6,7 @@
  */
 #include <limits.h>
 
+#include <assert.h>
 #include "cnet.h"
 #include "datagram.h"
 #include "network_layer.h"
@@ -16,6 +17,7 @@
 static uint64_t total_memory = 0;
 //-----------------------------------------------------------------------------
 // statistics
+uint64_t wrong_timeout = 0;
 static int reported_messages = 0;
 static uint64_t observed_packets = 0;
 static uint64_t nacks_handled = 0;
@@ -28,6 +30,12 @@ static unsigned int packets_retransmitted_total = 0;
 static uint64_t fragments_retransmitted_total = 0;
 static unsigned int separate_ack = 0;
 static unsigned int sent_messages = 0;
+//-----------------------------------------------------------------------------
+// host clock
+CnetTime last_host_time = 0;
+uint64_t granularity_of_clock = 100;
+uint64_t retransmits_in_interval = 0;
+uint64_t saved_retransmits = 0;
 //-----------------------------------------------------------------------------
 // queue containing packets waiting dispatch
 QUEUE fragment_queue;
@@ -114,6 +122,39 @@ static int find_swin(CnetAddr address) {
     return (swin_size++);
 }
 //-----------------------------------------------------------------------------
+// sample clock for negative acknowledgement
+static void sample_nack_clock(int table_ind) {
+//    CnetTime curr_time = nodeinfo.time_in_usec;
+//    if(curr_time > granularity_of_clock+last_host_time || retransmits_in_interval == 0) {
+//        // Karn's algorithm
+//        if(swin[table_ind].adaptive_timeout*KARN_CONSTANT < 15 * 60000000)
+//            swin[table_ind].adaptive_timeout /= KARN_CONSTANT;
+//    }
+
+    swin[table_ind].adaptive_timeout /= 1.5;//KARN_CONSTANT;
+}
+//-----------------------------------------------------------------------------
+// sample clock for acknowledgement
+static void sample_ack_clock(int table_ind) {
+//    CnetTime curr_time = nodeinfo.time_in_usec;
+//    if(curr_time > granularity_of_clock+last_host_time) {
+//        retransmits_in_interval = 0;
+//        swin[table_ind].adaptive_timeout *= KARN_CONSTANT;
+//        last_host_time = nodeinfo.time_in_usec;
+//    }
+//    else
+//        if(retransmits_in_interval == 0) {
+//            // Karn's algorithm
+//            if(swin[table_ind].adaptive_timeout < 15 * 60000000)
+//                swin[table_ind].adaptive_timeout *= KARN_CONSTANT;
+//            retransmits_in_interval++;
+//        }
+//        else
+//            saved_retransmits++;
+
+    swin[table_ind].adaptive_timeout *= (float)KARN_CONSTANT;
+}
+//-----------------------------------------------------------------------------
 // increment sequence number
 static void inc(swin_seqno_t *seq) {
     *seq = (*seq + 1) % (MAXSEQ + 1);
@@ -179,9 +220,11 @@ static void set_timeout(swin_addr_t dst, msg_len_t pkt_len, PACKET pkt, int tabl
     // set timeout based on first fragment only
     if (swin[table_ind].timers[seqno] == NULLTIMER) {
         CnetData data = (dst << SEQNO_WIDTH) | seqno;
-        CnetTime timeout = 2*swin[table_ind].adaptive_timeout+
-                4*swin[table_ind].adaptive_deviation;
+        CnetTime timeout = 2*swin[table_ind].adaptive_timeout+4*swin[table_ind].adaptive_deviation;
         swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, timeout, data);
+
+        if(timeout > (2L << 48))
+            wrong_timeout++;
     }
 }
 //-----------------------------------------------------------------------------
@@ -319,6 +362,10 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
             for (int i = 0; i < (int)swin[table_ind].numacks[ack_mod]; i++) {
                 if((swin[table_ind].arrivedacks[ack_mod][i] == FALSE) &&
                    (swin[table_ind].retransmitted[ack_mod][i] == FALSE)) {
+
+                    assert(swin[table_ind].timesent[ack_mod][i] > 0);
+                    assert(swin[table_ind].adaptive_timeout > 0);
+
                     // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
@@ -326,14 +373,17 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     // update standard deviation
                     difference = observed-measured;
                     curr_deviation = swin[table_ind].adaptive_deviation;
-                    swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+ALPHA*fabs(difference);
-                    swin[table_ind].adaptive_timeout = ALPHA*measured+ALPHA*observed;
+                    swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+BETA*fabs((float)difference);
+                    swin[table_ind].adaptive_timeout = ALPHA*measured+BETA*observed;
 
                     // update statistics
                     observed_packets++;
                     average_measured += swin[table_ind].adaptive_timeout;
                     average_observed += observed;
                     average_deviation += swin[table_ind].adaptive_deviation;
+
+                    assert(measured > 0);
+                    assert(observed > 0);
                 }
                 swin[table_ind].timesent[ack_mod][i] = -1;
                 swin[table_ind].arrivedacks[ack_mod][i] = TRUE;
@@ -343,6 +393,10 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
             for (int i = 0; i <= (int)pkt.acksegid; i++) {
                 if((swin[table_ind].arrivedacks[ack_mod][i] == FALSE) &&
                    (swin[table_ind].retransmitted[ack_mod][i] == FALSE)) {
+
+                    assert(swin[table_ind].timesent[ack_mod][i] > 0);
+                    assert(swin[table_ind].adaptive_timeout > 0);
+
                     // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
@@ -350,8 +404,11 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                     // update standard deviation
                     difference = observed-measured;
                     curr_deviation = swin[table_ind].adaptive_deviation;
-                    swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+BETA*fabs(difference);
+                    swin[table_ind].adaptive_deviation = ALPHA*curr_deviation+BETA*fabs((float)difference);
                     swin[table_ind].adaptive_timeout = ALPHA*measured+BETA*observed;
+
+                    assert(measured > 0);
+                    assert(observed > 0);
 
                     // update statistics
                     observed_packets++;
@@ -392,8 +449,7 @@ void handle_nack(CnetAddr src, int table_ind) {
         CHECK(CNET_stop_timer(swin[table_ind].timers[seqno]));
     swin[table_ind].timers[seqno] = NULLTIMER;
 
-    // will be multiplied by Karn's constant in ack_timeout
-    swin[table_ind].adaptive_timeout /= KARN_CONSTANT;
+    sample_nack_clock(table_ind);
 
     CnetData data = (src << SEQNO_WIDTH) | seqno;
     ack_timeout(-1, -1, data);
@@ -563,9 +619,7 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     int table_ind = find_swin(addr);
     swin[table_ind].timers[seqno_mod] = NULLTIMER;
 
-    if(swin[table_ind].adaptive_timeout < 360000000)
-        // Karn's algorithm
-        swin[table_ind].adaptive_timeout *= KARN_CONSTANT;
+    sample_ack_clock(table_ind);
 
     // find out where to send and how to fragment
     swin_mtu_t mtu = get_mtu(swin[table_ind].address, FALSE);
@@ -670,8 +724,9 @@ void shutdown_transport() {
     fprintf(stderr, "\tdeviation timer: %f\n",((double)average_deviation/(double)observed_packets));
     fprintf(stderr, "\tmeasured timer: %f\n", ((double)average_measured / (double) observed_packets));
     fprintf(stderr, "\tobserved timer: %f\n", ((double)average_observed / (double) observed_packets));
+    fprintf(stderr, "\ttoo large timeout: %lu\n", wrong_timeout);
+    fprintf(stderr, "\tsaved retrasmit: %lu\n", saved_retransmits);
     fprintf(stderr, "\ttransport memory: %f(MB)\n", (double)total_memory / (double)(8*1024*1024));
-    fprintf(stderr, "\tsliding window mem: %lu\n", sizeof(sliding_window));
     shutdown_network();
 }
 //-----------------------------------------------------------------------------

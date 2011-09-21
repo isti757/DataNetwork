@@ -146,6 +146,23 @@ congestion in the network or packet loss. \\
 Right after receiving message from application layer, we compress the message
 and reassemble it in the transport layer at the endpoint. We use the $LZO$
 compression algorithm for this purpose, a variant of the famous $LZ$ algorithm.
+\noindent \textbf{Handling ambiguity}
+The protocol suffers from the safe vulnerability as does the TCP layer. 
+The following scenario describes when an error occurs:
+\begin{enumerate}
+\item a packet with sequence number $N$ is sent
+\item the packet reaches the receiver
+\item an ACK is sent by receiver
+\item the ACK gets "astray'' in the network, by following a non-optimal route, and the packet is retransmitted by the sender
+\item an ACK finally arrives at the sender
+\item the sender's sliding window makes a full cycle
+\item the retransmitted packet $N$ arrives at the receiver as its sequence number falls into the receivers window
+\end{enumerate}
+
+Clearly this ambuguity can only be treated with globally unique sequence numbers of messages which is not realistic.
+A similar situation can arrise when the first ACK follows a non-optimal route. We treat the error by allowing
+a large ration of allowed sequence numbers range and the sliding window size.
+
     \newpage
     Top level API:  
   \begin{lstlisting}
@@ -372,9 +389,9 @@ Transfer unit of transport layer:
        
     \begin{lstlisting}
     typedef struct {
-      uint8_t seqno; // datagram sequence number
+      uint16_t seqno; // datagram sequence number
       uint8_t segid; // segment sequence number
-      uint8_t ackseqno; // piggybacked ack sequence number
+      uint16_t ackseqno; // piggybacked ack sequence number
       uint8_t acksegid; // piggybacked ack segment number
       char msg[MAX_MESSAGE_SIZE]; // encapsulated application layer message
     } PACKET;
@@ -388,7 +405,7 @@ Transfer unit of network layer and datalink layers:
       uint8_t dest;      // destination address
       uint8_t kind;      // packet kind
       uint16_t length;   // length of payload
-      uint32_t checksum;  // checksum of entire datagram
+      uint16_t checksum;  // checksum of entire datagram
       char payload[MAXFRAMESIZE]; // encapsulated packet
     } DATAGRAM;
    \end{lstlisting}

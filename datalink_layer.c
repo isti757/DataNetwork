@@ -10,6 +10,7 @@
 
 #include <cnet.h>
 
+#include "assert.h"
 #include "dl_frame.h"
 #include "datalink_container.h"
 #include "datalink_layer.h"
@@ -64,8 +65,10 @@ void write_datalink(int link, char *datagram, uint32_t length) {
     output_max[link] = max(output_max[link], queue_nitems(output_queues[link]));
 
     // add to the link queue
-    size_t container_length = DTG_CONTAINER_SIZE(container);
-    queue_add(output_queues[link], &container, container_length);
+    if(queue_nitems(output_queues[link]) < 5000) {
+        size_t container_length = DTG_CONTAINER_SIZE(container);
+        queue_add(output_queues[link], &container, container_length);
+    }
 }
 //-----------------------------------------------------------------------------
 // flush a queue
@@ -84,10 +87,6 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         size_t frame_length = datagram_length + DL_FRAME_HEADER_SIZE;
 
         int link = dtg_container->link;
-        if (frame_length > linkinfo[link].mtu) {
-            DATAGRAM dtg;
-            memcpy(&dtg,&frame.data,datagram_length);
-        }
         CHECK(CNET_write_physical(link, (char *)&frame, &frame_length));
 
         //compute timeout for the link
@@ -114,8 +113,10 @@ void init_datalink() {
 }
 //-----------------------------------------------------------------------------
 void shutdown_datalink() {
+    int packets[MAX_LINKS_COUNT];
     uint64_t memory_datalink = 0;
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
+        packets[i] = queue_nitems(output_queues[i]);
         while(queue_nitems(output_queues[i]) != 0) {
             size_t containter_len;
             DTG_CONTAINER * dtg_container = queue_remove(output_queues[i], &containter_len);
@@ -127,7 +128,7 @@ void shutdown_datalink() {
     fprintf(stderr, "\tdatalink memory: %f(MB)\n", (double)memory_datalink/(double)(1024*1024*8));
 
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
-        fprintf(stderr, "\tlink %d - datalink queue: %d packets max: %lu\n", i, queue_nitems(output_queues[i]), output_max[i]);
+        fprintf(stderr, "\tlink %d - datalink queue: %d packets max: %lu\n", i, packets[i], output_max[i]);
         queue_free(output_queues[i]);
     }
 }
