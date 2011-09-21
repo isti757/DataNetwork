@@ -419,6 +419,14 @@ int get_propagation_delay(CnetAddr destaddr) {
 }
 //-----------------------------------------------------------------------------
 void shutdown_routing() {
+    uint64_t routing_memory = 0;
+    routing_memory += route_table_size*sizeof(ROUTE_TABLE);
+    routing_memory += history_table_size*sizeof(HISTORY_TABLE);
+    routing_memory += reverse_table_size*sizeof(REVERSE_ROUTE_TABLE);
+    routing_memory += forward_table_size*sizeof(FORWARD_ROUTE_TABLE);
+
+    fprintf(stderr, "\trouting memory: %fMB\n", (double)routing_memory / (double)(8*1024*1024));
+
     free(route_table);
     free(history_table);
     free(reverse_route);

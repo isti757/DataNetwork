@@ -9,6 +9,8 @@
 
 #include <cnet.h>
 
+//#define APPLICATION_COMPRESSION
+
 //-----------------------------------------------------------------------------
 // initialize application layer
 extern void init_application();

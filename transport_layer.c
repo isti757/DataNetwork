@@ -9,11 +9,11 @@
 #include "cnet.h"
 #include "datagram.h"
 #include "network_layer.h"
-//#include "routing.h"
-//#include "compression.h"
 #include "transport_layer.h"
 #include "application_layer.h"
 
+//-----------------------------------------------------------------------------
+static uint64_t total_memory = 0;
 //-----------------------------------------------------------------------------
 // statistics
 static int reported_messages = 0;
@@ -35,7 +35,7 @@ CnetTimerID flush_queue_timer = NULLTIMER;
 //-----------------------------------------------------------------------------
 // a table of sliding windows
 static sliding_window *swin;
-static int swin_size;
+static int swin_size = 0;
 //-----------------------------------------------------------------------------
 // initializes sliding window table
 static void init_sliding_window() {
@@ -44,7 +44,15 @@ static void init_sliding_window() {
 }
 //-----------------------------------------------------------------------------
 static void destroy_sliding_window() {
+    total_memory += swin_size*sizeof(sliding_window);
     for(int i = 0; i < swin_size; i++) {
+        while(queue_nitems(swin[i].fragment_queue) != 0) {
+            size_t el_size;
+            FRAGMENT *frg = queue_remove(swin[i].fragment_queue, &el_size);
+            total_memory += el_size;
+            free(frg);
+        }
+
         queue_free(swin[i].fragment_queue);
     }
     free(swin);
@@ -649,6 +657,7 @@ void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
 }
 //-----------------------------------------------------------------------------
 void shutdown_transport() {
+    destroy_sliding_window();
     fprintf(stderr, "address: %d\n", nodeinfo.address);
     fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
     fprintf(stderr, "\tretransmitted pack: %d\n", packets_retransmitted_total);
@@ -660,7 +669,8 @@ void shutdown_transport() {
     fprintf(stderr, "\tdeviation timer: %f\n",((double)average_deviation/(double)observed_packets));
     fprintf(stderr, "\tmeasured timer: %f\n", ((double)average_measured / (double) observed_packets));
     fprintf(stderr, "\tobserved timer: %f\n", ((double)average_observed / (double) observed_packets));
-    destroy_sliding_window();
+    fprintf(stderr, "\ttransport memory: %f(MB)\n", (double)total_memory / (double)(8*1024*1024));
+    fprintf(stderr, "\tsliding window mem: %lu\n", sizeof(sliding_window));
     shutdown_network();
 }
 //-----------------------------------------------------------------------------

@@ -13,6 +13,7 @@
 #include "packet.h"
 #include "fragment.h"
 #include "network_layer.h"
+#include "application_layer.h"
 
 //-----------------------------------------------------------------------------
 // custom types
@@ -25,7 +26,12 @@ typedef uint8_t  swin_bool_t;        // boolean type
 #define MAXPL       (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
 #define MAXFR       (12240+MAXPL)/MAXPL
 // sliding window
-#define NBITS       5
+#ifdef APPLICATION_COMPRESSION
+#   define NBITS    6
+#else
+#define NBITS       4
+#endif
+
 #define MAXSEQ      65535 //USHRT_MAX
 #define NRBUFS      (1<<(NBITS-1))
 // boolean variable
@@ -37,7 +43,7 @@ typedef uint8_t  swin_bool_t;        // boolean type
 #define SEPARATE_ACK_TIMEOUT 10 // 100micro seconds
 //-----------------------------------------------------------------------------
 // adaptive timeouts
-#define KARN_CONSTANT 1.5                  // congestion
+#define KARN_CONSTANT 2.0                  // congestion
 #define LEARNING_RATE 0.125                // flow
 #define SLOWDOWN_RATE 1.2
 #define BETA          LEARNING_RATE

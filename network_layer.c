@@ -11,10 +11,10 @@
 
 #include <cnet.h>
 
-#include "log.h"
 #include "packet.h"
 #include "debug.h"
 #include "network_layer.h"
+#include "datalink_layer.h"
 
 //-----------------------------------------------------------------------------
 // initialize the network table and run discovery
@@ -25,7 +25,7 @@ void init_network() {
 //-----------------------------------------------------------------------------
 static unsigned int packets_forwarded_total = 0;
 void histogram() {
-    fprintf(stderr, "\tforwarded: %u\n", packets_forwarded_total);
+    ;//fprintf(stderr, "\tforwarded: %u\n", packets_forwarded_total);
 }
 //-----------------------------------------------------------------------------
 // write an outcoming packet into network layer

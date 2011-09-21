@@ -10,21 +10,27 @@
 
 #include <cnet.h>
 
-#include "debug.h"
+#include "dl_frame.h"
+#include "datalink_container.h"
 #include "datalink_layer.h"
 #include "network_layer.h"
 
+#ifndef max
+        #define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
+#endif
 //-----------------------------------------------------------------------------
 // an array of link timers
 CnetTimerID datalink_timers[MAX_LINKS_COUNT];
 // an array of output queues for each link
 QUEUE output_queues[MAX_LINKS_COUNT];
+uint64_t output_max[MAX_LINKS_COUNT+1];
 //-----------------------------------------------------------------------------
 // read a frame from physical layer
 void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data) {
     int link;
     DL_FRAME frame;
-    size_t len = DATAGRAM_HEADER_SIZE + DL_FRAME_HEADER_SIZE + 2*MAX_MESSAGE_SIZE;
+    size_t len = PACKET_HEADER_SIZE+DATAGRAM_HEADER_SIZE +
+            DL_FRAME_HEADER_SIZE + MAX_MESSAGE_SIZE;
     CHECK(CNET_read_physical(&link, (char *)&frame, &len));
 
     // compare the checksum
@@ -54,6 +60,8 @@ void write_datalink(int link, char *datagram, uint32_t length) {
         CnetTime timeout_flush = 1;
         datalink_timers[link] = CNET_start_timer(EV_DATALINK_FLUSH, timeout_flush, link);
     }
+
+    output_max[link] = max(output_max[link], queue_nitems(output_queues[link]));
 
     // add to the link queue
     size_t container_length = DTG_CONTAINER_SIZE(container);
@@ -86,7 +94,7 @@ void flush_datalink_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         double bandwidth = linkinfo[link].bandwidth;
         CnetTime timeout = 1+8000005.0*(frame_length / bandwidth);
         datalink_timers[link] = CNET_start_timer(EV_DATALINK_FLUSH, timeout, current_link);
-        free((DTG_CONTAINER*) dtg_container);
+        free(dtg_container);
     } else {
         datalink_timers[current_link] = NULLTIMER;
     }
@@ -101,12 +109,25 @@ void init_datalink() {
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
         datalink_timers[i] = NULLTIMER;
         output_queues[i] = queue_new();
+        output_max[i] = 0;
     }
 }
 //-----------------------------------------------------------------------------
 void shutdown_datalink() {
+    uint64_t memory_datalink = 0;
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
-        fprintf(stderr, "\tlink %d - datalink queue: %d packets\n", i, queue_nitems(output_queues[i]));
+        while(queue_nitems(output_queues[i]) != 0) {
+            size_t containter_len;
+            DTG_CONTAINER * dtg_container = queue_remove(output_queues[i], &containter_len);
+            memory_datalink += containter_len;
+            free(dtg_container);
+        }
+    }
+
+    fprintf(stderr, "\tdatalink memory: %f(MB)\n", (double)memory_datalink/(double)(1024*1024*8));
+
+    for (int i = 1; i <= nodeinfo.nlinks; i++) {
+        fprintf(stderr, "\tlink %d - datalink queue: %d packets max: %lu\n", i, queue_nitems(output_queues[i]), output_max[i]);
         queue_free(output_queues[i]);
     }
 }

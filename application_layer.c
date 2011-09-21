@@ -28,7 +28,6 @@ static void destroy_compression() {
     free(in);
 }
 #endif
-
 //-----------------------------------------------------------------------------
 void read_application(char* msg, size_t len) {
 #ifdef APPLICATION_COMPRESSION
