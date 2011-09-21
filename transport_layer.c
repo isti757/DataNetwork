@@ -563,8 +563,9 @@ void ack_timeout(CnetEvent ev, CnetTimerID t1, CnetData data) {
     int table_ind = find_swin(addr);
     swin[table_ind].timers[seqno_mod] = NULLTIMER;
 
-    // Karn's algorithm
-    swin[table_ind].adaptive_timeout *= KARN_CONSTANT;
+    if(swin[table_ind].adaptive_timeout < 360000000)
+        // Karn's algorithm
+        swin[table_ind].adaptive_timeout *= KARN_CONSTANT;
 
     // find out where to send and how to fragment
     swin_mtu_t mtu = get_mtu(swin[table_ind].address, FALSE);
