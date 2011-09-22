@@ -165,18 +165,24 @@ a large ration of allowed sequence numbers range and the sliding window size.
 
     \newpage
     Top level API:  
-  \begin{lstlisting}
-  // initialize transport layer 
-  void init_transport();
-  
-  // write incoming message from network layer to transport layer
-  void read_transport(PACKETKIND kind, uint16_t len, CnetAddr src, char* packet);
-  
-  // read outgoing message from application to transport layer
-  void write_transport(CnetEvent ev, CnetTimerID timer, CnetData data);
-  
-  // signal transport layer
-  void signal_transport(SIGNALKIND sg, SIGNALDATA data);
+ \begin{lstlisting}
+
+// initialize transport layer
+ void init_transport();
+
+// read outgoing message from application to transport layer
+ void write_transport(CnetAddr destaddr, char* msg, size_t len);
+
+// write incoming message from network to transport
+ void read_transport(msg_type_t kind, msg_len_t len, CnetAddr src, char* pkt);
+
+ void signal_transport(SIGNALKIND sg, SIGNALDATA data);
+
+// private functions:
+ void ack_timeout(CnetEvent ev, CnetTimerID ti, CnetData data);
+
+// clean the memory
+ void shutdown_transport();
   \end{lstlisting}
    
 \section*{Network layer} 
@@ -197,7 +203,6 @@ Services provided by the layer:
   \item Determines propagation delay for routes
   \item Passing message up to the transport layer and down to the datalink layer
 \end{enumerate}
-
     
 Top level API:
     
@@ -238,18 +243,17 @@ two nodes. If no response is received from a particular neighbour the node will 
 correponding link. 
     
 Top level API: 
-  \begin{lstlisting}
-  //initialize discovery
- void init_discovery();
+\begin{lstlisting}
+ .void init_discovery();
 
-//process a discovery packet
- void do_discovery(int, DATAGRAM dtg);
+// process a discovery packet
+.. void do_discovery(int, DATAGRAM dtg);
 
 // poll our neighbors
- void pollNeighbors();
+ .void pollNeighbors();
 
-// discovery timer event handler
- void discovery_timer_handler(CnetEvent, CnetTimerID, CnetData);
+.// discovery timer event handler
+..void discovery_timer_handler(CnetEvent, CnetTimerID, CnetData);
 \end{lstlisting}
 \subsection*{Routing}
 
@@ -296,36 +300,36 @@ to its transport layer.
 
     Top level API:  
   \begin{lstlisting}
-  // initialize the routing
-   void init_routing();
+// initialize the routing
+extern void init_routing();
 
-  // route a packet
-   void route(DATAGRAM);
+.// route a packet
+ .void route(DATAGRAM);
 
-  // check if a route for specified address exists in routing table
-   int route_exists(CnetAddr address);
+.// check if a route for specified address exists in routing table
+..int route_exists(CnetAddr address);
 
-  //send a route request to find address
-   void send_route_request(CnetAddr address, int time_to_live);
+.// send a route request to find address
+. void send_route_request(CnetAddr address);
 
-  //process a routing packet
-   void do_routing(int link,DATAGRAM datagram);
+.// process a routing packet
+. void do_routing(int link,DATAGRAM datagram);
 
-  // learn the routing table
-   void learn_route_table(CnetAddr address, int hops, int link,int mtu,CnetTime total_delay);
+.// learn the routing table
+. void learn_route_table(CnetAddr address, int hops, int link, int mtu,
+                              CnetTime total_delay, uint16_t req_id);
 
-  // detect a link for outcoming message
-   int get_next_link_for_dest(CnetAddr destaddr);
+.// detect a link for outcoming message
+. int get_next_link_for_dest(CnetAddr destaddr);
 
-  // detect fragmentation size for the specified address
-   int get_mtu(CnetAddr);
+.// detect a fragmentation size for the specified address
+. int get_mtu(CnetAddr dest, int need_send_mtu_request);
 
-  //get propagation delay for specified address
-   int get_propagation_delay(CnetAddr);
+.// get propagation delay on the route to specified address
+. int get_propagation_delay(CnetAddr);
 
-   void show_table(CnetEvent ev, CnetTimerID timer, CnetData data);
-
-   void shutdown_routing();
+.// shutdown routing
+ void shutdown_routing();
   \end{lstlisting}
 \newpage
 
@@ -344,17 +348,20 @@ and sends the datagrams back to back to the link.
     \newpage
     Top level API: 
   \begin{lstlisting}
-  // initialize datalink layer
-  void init_datalink();
-  
-  // read an incoming frame into datalink layer
-  void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data);
-  
-  // write an outcoming frame into datalink layer
-  void write_datalink(int link, char *datagram, uint32_t length);
-  
-  // signal transport layer
-  void signal_datalink(SIGNALKIND sg, SIGNALDATA data);
+// a timer event for Cnet_write_physical
+#define EV_DATALINK_FLUSH EV_TIMER6
+
+.// initialize datalink layer
+..void init_datalink();
+
+.// read an incoming frame into datalink layer
+..void read_datalink(CnetEvent event, CnetTimerID timer, CnetData data);
+
+.// write an outgoing frame into datalink layer
+..void write_datalink(int link, char *data, uint32_t len);
+
+.// clean the memory
+..void shutdown_datalink();
   \end{lstlisting} 
  
 \section*{Data exchange format}
@@ -414,3 +421,4 @@ Transfer unit of network layer and datalink layers:
 \section*{Summary}
 
 \end{document}
+
