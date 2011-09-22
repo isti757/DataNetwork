@@ -223,8 +223,8 @@ static void set_timeout(swin_addr_t dst, msg_len_t pkt_len, PACKET pkt, int tabl
         CnetTime timeout = 2*swin[table_ind].adaptive_timeout+4*swin[table_ind].adaptive_deviation;
         swin[table_ind].timers[seqno] = CNET_start_timer(EV_TIMER1, timeout, data);
 
-        if(timeout > (2L << 48))
-            wrong_timeout++;
+//        if(timeout > (2L << 48))
+//            wrong_timeout++;
     }
 }
 //-----------------------------------------------------------------------------
@@ -394,7 +394,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
                 if((swin[table_ind].arrivedacks[ack_mod][i] == FALSE) &&
                    (swin[table_ind].retransmitted[ack_mod][i] == FALSE)) {
 
-                    assert(swin[table_ind].timesent[ack_mod][i] > 0);
+                    //assert(swin[table_ind].timesent[ack_mod][i] > 0);
                     assert(swin[table_ind].adaptive_timeout > 0);
 
                     // update timeout
@@ -716,7 +716,7 @@ void shutdown_transport() {
     fprintf(stderr, "address: %d\n", nodeinfo.address);
     fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
     fprintf(stderr, "\tretransmitted pack: %d\n", packets_retransmitted_total);
-    fprintf(stderr, "\tretransmitted frag: %lu\n", fragments_retransmitted_total);
+    //fprintf(stderr, "\tretransmitted frag: %lu\n", fragments_retransmitted_total);
     fprintf(stderr, "\tseparate ack: %d\n", separate_ack);
     fprintf(stderr, "\tnacks handled: %d\n", (int)nacks_handled);
     fprintf(stderr, "\tout of order: %d\n", (int)out_of_order);
@@ -724,8 +724,8 @@ void shutdown_transport() {
     fprintf(stderr, "\tdeviation timer: %f\n",((double)average_deviation/(double)observed_packets));
     fprintf(stderr, "\tmeasured timer: %f\n", ((double)average_measured / (double) observed_packets));
     fprintf(stderr, "\tobserved timer: %f\n", ((double)average_observed / (double) observed_packets));
-    fprintf(stderr, "\ttoo large timeout: %lu\n", wrong_timeout);
-    fprintf(stderr, "\tsaved retrasmit: %lu\n", saved_retransmits);
+    //fprintf(stderr, "\ttoo large timeout: %lu\n", wrong_timeout);
+    //fprintf(stderr, "\tsaved retrasmit: %lu\n", saved_retransmits);
     fprintf(stderr, "\ttransport memory: %f(MB)\n", (double)total_memory / (double)(8*1024*1024));
     shutdown_network();
 }

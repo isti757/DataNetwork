@@ -128,7 +128,7 @@ void shutdown_datalink() {
     fprintf(stderr, "\tdatalink memory: %f(MB)\n", (double)memory_datalink/(double)(1024*1024*8));
 
     for (int i = 1; i <= nodeinfo.nlinks; i++) {
-        fprintf(stderr, "\tlink %d - datalink queue: %d packets max: %lu\n", i, packets[i], output_max[i]);
+        //fprintf(stderr, "\tlink %d - datalink queue: %d packets max: %lu\n", i, packets[i], output_max[i]);
         queue_free(output_queues[i]);
     }
 }

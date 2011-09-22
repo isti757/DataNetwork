@@ -50,7 +50,7 @@ void do_discovery(int link, DATAGRAM datagram) {
     }
     case I_AM:
         // response to our Who_R_U query
-        learn_route_table(p.address, 0, link, linkinfo[link].mtu, p.delay,-1);
+        learn_route_table(p.address, 0, link, linkinfo[link].mtu, p.delay,0);
         response_status[link] = 1;
         break;
     }

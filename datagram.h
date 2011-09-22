@@ -51,11 +51,11 @@ typedef struct {
     swin_addr_t dest;   // destination address
     msg_type_t kind;    // packet kind
     msg_len_t length;   // length of payload
-    int req_id;
+    uint16_t req_id;
     char payload[MAXFRAMESIZE];
 } __attribute__((packed)) DATAGRAM;
 
-#define DATAGRAM_HEADER_SIZE  (2*sizeof(swin_addr_t)+sizeof(msg_type_t)+sizeof(msg_len_t)+sizeof(int))
+#define DATAGRAM_HEADER_SIZE  (2*sizeof(swin_addr_t)+sizeof(msg_type_t)+sizeof(msg_len_t)+sizeof(uint16_t))
 #define DATAGRAM_SIZE(d)      (DATAGRAM_HEADER_SIZE + d.length)
 //-----------------------------------------------------------------------------
 

@@ -14,7 +14,7 @@
 //-----------------------------------------------------------------------------
 #define EV_ROUTE_PENDING_TIMER  EV_TIMER7
 // timeout for waiting route response
-#define ROUTE_REQUEST_TIMEOUT 1000000
+#define ROUTE_REQUEST_TIMEOUT 2000000
 // the maximum number of hosts
 #define MAX_HOSTS_NUMBER 256
 //-----------------------------------------------------------------------------
@@ -29,14 +29,14 @@ typedef struct {
     int	        minhop_link;
     int 	min_mtu;
     CnetTime	total_delay;
-    int         req_id;
+    uint16_t         req_id;
 } __attribute__((packed)) ROUTE_TABLE;
 //-----------------------------------------------------------------------------
 // definition of a local history table for routing
 typedef struct {
         uint8_t source;
         uint8_t dest;
-	int req_id;
+        uint16_t req_id;
 } __attribute__((packed)) HISTORY_TABLE;
 //-----------------------------------------------------------------------------
 // a reverse route table
@@ -44,7 +44,7 @@ typedef struct {
         uint8_t source;
         uint8_t dest;
         uint8_t reverse_link;
-        int req_id;
+        uint16_t req_id;
 } REVERSE_ROUTE_TABLE;
 //-----------------------------------------------------------------------------
 // a forward route table
@@ -52,7 +52,7 @@ typedef struct {
     uint8_t source;
     uint8_t dest;
     uint8_t forward_link;
-    int req_id;
+    uint16_t req_id;
 } FORWARD_ROUTE_TABLE;
 //-----------------------------------------------------------------------------
 // a route request packet
@@ -61,14 +61,14 @@ typedef struct {
 	uint8_t source;
 	uint8_t dest;
         uint16_t hop_count;
-        int req_id;           // a local counter maintained separately by each node
+        uint16_t req_id;           // a local counter maintained separately by each node
                               // and incremented each time a ROUTE REQUEST is sent
         uint16_t min_mtu;     // a minimum MTU value on the way to destination
         uint16_t forward_min_mtu;
         CnetTime total_delay; // a total propagation delay on the way to destination
 } __attribute__((packed)) ROUTE_PACKET;
 
-#define ROUTE_PACKET_SIZE(pkt) (3*sizeof(uint16_t)+3*sizeof(uint8_t)+sizeof(CnetTime)+sizeof(int))
+#define ROUTE_PACKET_SIZE(pkt) (4*sizeof(uint16_t)+3*sizeof(uint8_t)+sizeof(CnetTime))
 //-----------------------------------------------------------------------------
 // initialize the routing
 extern void init_routing();
@@ -80,14 +80,14 @@ extern void route(DATAGRAM);
 extern int route_exists(CnetAddr address);
 //-----------------------------------------------------------------------------
 // send a route request to find address
-extern void send_route_request(CnetAddr address, int time_to_live);
+extern void send_route_request(CnetAddr address);
 //-----------------------------------------------------------------------------
 // process a routing packet
 extern void do_routing(int link,DATAGRAM datagram);
 //-----------------------------------------------------------------------------
 // learn the routing table
 extern void learn_route_table(CnetAddr address, int hops, int link, int mtu,
-                              CnetTime total_delay, int req_id);
+                              CnetTime total_delay, uint16_t req_id);
 //-----------------------------------------------------------------------------
 // detect a link for outcoming message
 extern int get_next_link_for_dest(CnetAddr destaddr);
