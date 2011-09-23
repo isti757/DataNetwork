@@ -161,7 +161,7 @@ The following scenario describes when an error occurs:
 
 Clearly this ambuguity can only be treated with globally unique sequence numbers of messages which is not realistic.
 A similar situation can arrise when the first ACK follows a non-optimal route. We treat the error by allowing
-a large ration of allowed sequence numbers range and the sliding window size.
+a large ratio of allowed sequence numbers range and the sliding window size.
 
     \newpage
     Top level API:  
@@ -255,12 +255,9 @@ Contains information on routing replies received so far together with links they
 Whenever a node needs to send a datagram it first contacts its 
 routing table and in case there is an entry for the destination it forwards the 
 datagram to the corresponding link. If the destination is not in the routing table
-then the node broadcasts the routing request to all its neighbours.. A value (hop) is used to
-measure the lifetime of the request and is incremented every time the request is
-rebroadcast. After broadcasting a routing request a node waits for replies for
-a specified period of time. If it does receive replies then it chooses the link with the
-minimal value of $\log(hops) \times RTT$. The node also sets a timer for the request and when it expires the request
-is broadcast again with an incremented hop. When a datagram arrives at a node it implements 
+then the node broadcasts the routing request to all its neighbours. After receiving the first reply the node waits for other replies for a specified period of time. It then chooses the link with the
+minimal value of $\log(hops) \times RTT$. After broadcasting a request the node sets a timer and
+if it expires before any reply arrives then the request will be rebroadcast. When a datagram arrives at a node it implements 
 one of the following three procedures depending on the type of the datagram:
 \begin{itemize}
 \item \noindent \textbf{Routing request datagram:}
