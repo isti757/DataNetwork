@@ -1,0 +1,31 @@
+// A (cheaper, lossy) connection to SLS is added.
+
+compile = "milestone3.c"
+
+#include "saarland.map"
+#include "linktypes2.txt"
+
+messagerate = 500ms
+
+host SB {
+	x = 45388, y = 44424
+	address = 134
+	messagerate = 1ms
+	
+	wan to HOM { LINK_LOW_MTU(1, 3450) }
+	wan to SLS { LINK_GOOD(10, 2622) }
+}
+
+host HOM {
+	x = 68544, y = 35424
+	address = 96
+
+	wan to SB { LINK_LOW_MTU(1, 3450) }
+}
+
+host SLS {
+	x = 29088, y = 34848
+	address = 182
+
+	wan to SB { LINK_GOOD(10, 2622) }
+}

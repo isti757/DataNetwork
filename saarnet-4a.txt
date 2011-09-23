@@ -1,0 +1,79 @@
+compile = "milestone3.c"
+
+#include "saarland.map"
+#include "linktypes2.txt"
+
+host SB {
+	x = 45388, y = 44424
+	address = 134
+	messagerate = 100ms // ~ 1.6 Mbps
+
+	wan to HOM { LINK_LOW_MTU(1, 3450) }
+	wan to SLS { LINK_GOOD(10, 2622) }
+	wan to IGB { LINK_GOOD(10, 1584) }
+}
+
+host IGB {
+	x = 55656, y = 39744
+	address = 185
+	messagerate = 200ms // ~ 0.8 Mbps
+
+	wan to SB { LINK_GOOD(10, 1584) }
+	wan to HOM { LINK_GOOD(10, 1888) }
+	wan to NK { LINK_STD(4, 1144) }
+}
+
+host HOM {
+	x = 68544, y = 35424
+	address = 96
+	messagerate = 200ms // ~ 0.8 Mbps
+
+	wan to SB { LINK_LOW_MTU(1, 3450) }
+	wan to IGB { LINK_GOOD(10, 1888) }
+	wan to NK { LINK_STD(5, 1518) }
+}
+
+host NK {
+	x = 58176, y = 31896
+	address = 170
+	messagerate = 200ms // ~ 0.8 Mbps
+
+	wan to HOM { LINK_STD(5, 1518) }
+	wan to IGB { LINK_STD(4, 1144) }
+	wan to WND { LINK_STD(4, 1797) }
+}
+
+host WND {
+	x = 57024, y = 19080
+	address = 160
+	messagerate = 200ms // ~ 0.8 Mbps
+
+	wan to NK { LINK_STD(4, 1797) }
+}
+
+host SLS {
+	x = 29088, y = 34848
+	address = 182
+	messagerate = 150ms // ~ 1.2 Mbps
+
+	wan to SB { LINK_GOOD(10, 2622) }
+	wan to DIL { LINK_STD(5, 632) }
+}
+
+host DIL {
+	x = 26712, y = 31032
+	address = 183
+	messagerate = 200ms // ~ 0.8 Mbps
+
+	wan to SLS { LINK_STD(5, 632) }
+	wan to MZG { LINK_STD(5, 1518) }
+}
+
+host MZG {
+	x = 19944, y = 22392
+	address = 184
+	messagerate = 200ms // ~ 0.8 Mbps
+
+	wan to DIL { LINK_STD(5, 1518) }
+}
+
