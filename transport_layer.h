@@ -2,7 +2,7 @@
  * transport_layer.h
  *
  *  Created on: Aug 30, 2011
- *      Author: isti
+ *      Author: igor
  */
 #ifndef TRANSPORT_LAYER_H_
 #define TRANSPORT_LAYER_H_
@@ -23,27 +23,23 @@ typedef int16_t  swin_mtu_t;         // maximum mtu is < 65535
 typedef uint8_t  swin_bool_t;        // boolean type
 //-----------------------------------------------------------------------------
 // fragmentation
-#define MAXPL       (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
-#define MAXFR       (12240+MAXPL)/MAXPL
+#define MAXPACKLEN    (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
+#define MAXFRAG       (12240+MAXPACKLEN)/MAXPACKLEN
 // sliding window
-#ifdef APPLICATION_COMPRESSION
-#   define NBITS    6
-#else
 #define NBITS       4
-#endif
-
 #define MAXSEQ      65535 //USHRT_MAX
 #define NRBUFS      (1<<(NBITS-1))
-// boolean variables
+// boolean variable
 #define FALSE       0
 #define TRUE        1
 //-----------------------------------------------------------------------------
 // non adaptive timeouts
-#define FLUSH_RESTART 1         // 1micro second
+#define FLUSH_RESTART 1    // 1micro second
 #define SEPARATE_ACK_TIMEOUT 10 // 100micro seconds
 //-----------------------------------------------------------------------------
 // adaptive timeouts
-#define KARN_CONSTANT 1.3                  // congestion
+#define ARTIFICIAL_TIMEOUT_LIMIT (10L*60L*60L*1000000L)
+#define KARN_CONSTANT 1.5                  // congestion
 #define LEARNING_RATE 0.125                // flow
 #define SLOWDOWN_RATE 1.2
 #define BETA          LEARNING_RATE
@@ -62,7 +58,7 @@ typedef struct sliding_window {
     // adaptive and retransmit timeouts
     CnetTime adaptive_timeout;
     CnetTime adaptive_deviation;
-    CnetTime timesent[NRBUFS][MAXFR];
+    CnetTime timesent[NRBUFS][MAXFRAG];
     CnetTimerID timers[NRBUFS];               // retransmit timeout
     // sliding window variables
     swin_seqno_t nbuffered;                   // sender side
@@ -73,12 +69,12 @@ typedef struct sliding_window {
     // out of order packet management
     swin_bool_t nonack;
     // packet status and reassembly
-    swin_bool_t arrived[NRBUFS];              // marks if entire packet arrived
-    swin_bool_t retransmitted[NRBUFS][MAXFR]; // marks if packet was retransmitted
-    PACKET inpacket[NRBUFS];                  // space for assembling incoming packet
-    PACKET outpacket[NRBUFS];                 // space for storing packets for resending
-    msg_len_t inlengths[NRBUFS];              // length of incoming packet so far
-    msg_len_t outlengths[NRBUFS];             // length of outgoing packet
+    swin_bool_t arrived[NRBUFS];                // marks if entire packet arrived
+    swin_bool_t retransmitted[NRBUFS][MAXFRAG]; // marks if packet was retransmitted
+    PACKET inpacket[NRBUFS];                    // space for assembling incoming packet
+    PACKET outpacket[NRBUFS];                   // space for storing packets for resending
+    msg_len_t inlengths[NRBUFS];                // length of incoming packet so far
+    msg_len_t outlengths[NRBUFS];               // length of outgoing packet
     // fragmentation variables
     swin_mtu_t mtusize[NRBUFS];
     swin_frag_ind_t lastfullfragment;
@@ -86,8 +82,8 @@ typedef struct sliding_window {
     swin_frag_count_t numacks[NRBUFS];
     swin_frag_ind_t lastfrag[NRBUFS];
     swin_bool_t allackssarrived[NRBUFS];
-    swin_bool_t arrivedacks[NRBUFS][MAXFR];
-    swin_bool_t arrivedfrags[NRBUFS][MAXFR];
+    swin_bool_t arrivedacks[NRBUFS][MAXFRAG];
+    swin_bool_t arrivedfrags[NRBUFS][MAXFRAG];
 }  __attribute__((packed)) sliding_window;
 //-----------------------------------------------------------------------------
 // initialize transport layer
@@ -104,7 +100,7 @@ extern void signal_transport(SIGNALKIND sg, SIGNALDATA data);
 // private functions:
 extern void ack_timeout(CnetEvent ev, CnetTimerID ti, CnetData data);
 //-----------------------------------------------------------------------------
-// clean the memory
-extern void shutdown_transport();
+static void shutdown_transport();
 //-----------------------------------------------------------------------------
+
 #endif /* TRANSPORT_LAYER_H_ */
