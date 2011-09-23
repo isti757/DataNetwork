@@ -637,6 +637,7 @@ void write_transport(CnetAddr destaddr, char* msg, size_t len) {
 //-----------------------------------------------------------------------------
 // clean all allocated memory
 static void shutdown_transport() {
+    destroy_sliding_window();
     fprintf(stderr, "address: %d\n", nodeinfo.address);
     fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
     fprintf(stderr, "\tretransmitted pack: %d\n", packets_retransmitted_total);
@@ -650,7 +651,7 @@ static void shutdown_transport() {
     fprintf(stderr, "\tobserved timer: %f\n", ((double)average_observed / (double) observed_packets));
     fprintf(stderr, "\ttransport memory: %f(MB)\n", (double)total_memory / (double)(8*1024*1024));
 
-    destroy_sliding_window();
+
     shutdown_network();
 }
 //-----------------------------------------------------------------------------

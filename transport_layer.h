@@ -26,7 +26,7 @@ typedef uint8_t  swin_bool_t;        // boolean type
 #define MAXPACKLEN    (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
 #define MAXFRAG       (12240+MAXPACKLEN)/MAXPACKLEN
 // sliding window
-#define NBITS       4
+#define NBITS       3
 #define MAXSEQ      65535 //USHRT_MAX
 #define NRBUFS      (1<<(NBITS-1))
 // boolean variable
