@@ -67,7 +67,11 @@ static int find_swin(CnetAddr address) {
     size_t new_size = (swin_size+1)*sizeof(sliding_window);
     swin = (sliding_window *)realloc((char *)swin, new_size);
 
+    // the correposnding address
     swin[swin_size].address = address;
+
+    // the sliding window size
+    swin[swin_size].swin_size = NRBUFS;
 
     // queue for waiting packets and timer management
     swin[swin_size].fragment_queue = queue_new();
@@ -78,7 +82,7 @@ static int find_swin(CnetAddr address) {
     swin[swin_size].adaptive_timeout = 0;
     swin[swin_size].adaptive_deviation = 0;
 
-    // sliding window
+    // sliding window sequence numbers
     swin[swin_size].nbuffered        = 0;
     swin[swin_size].ackexpected      = 0;
     swin[swin_size].nextframetosend  = 0;
@@ -175,6 +179,16 @@ static void set_timeout(swin_addr_t dst, msg_len_t pkt_len, PACKET pkt, int tabl
         double bandwidth = linkinfo[link].bandwidth;
         double trans_delay = 8000000 * ((double)(data_len) / bandwidth);
         swin[table_ind].adaptive_timeout = 3.0*(prop_delay + trans_delay);
+
+        // classify path according the the reported delay and
+        // set appropriate slidinw window size
+        if(prop_delay < LINK_FAST_DELAY) {
+            swin[table_ind].swin_size = LINK_FAST_SWIN;
+        }
+        else
+            swin[table_ind].swin_size = LINK_AVER_SWIN;
+
+        //fprintf(stderr, "%f\n", prop_delay);
     }
     // set timeout based on first fragment only
     if (swin[table_ind].timers[seqno] == NULLTIMER) {
@@ -625,7 +639,7 @@ void write_transport(CnetAddr destaddr, char* msg, size_t len) {
 
     // find corresponding sliding window
     int table_ind = find_swin(destaddr);
-    if (++swin[table_ind].nbuffered == NRBUFS)
+    if (++swin[table_ind].nbuffered >= swin[table_ind].swin_size)
         CHECK(CNET_disable_application(destaddr));
 
     if(queue_nitems(swin[table_ind].fragment_queue) == 0)

@@ -17,6 +17,7 @@
 
 //-----------------------------------------------------------------------------
 // custom types
+typedef int      swin_size_t;        // the size of sliding window
 typedef int16_t  swin_frag_ind_t;    // maximum fragment segid is < 200
 typedef uint8_t  swin_frag_count_t;  // maximum fragment count >= 0
 typedef int16_t  swin_mtu_t;         // maximum mtu is < 65535
@@ -26,7 +27,7 @@ typedef uint8_t  swin_bool_t;        // boolean type
 #define MAXPACKLEN    (96-DATAGRAM_HEADER_SIZE-PACKET_HEADER_SIZE)
 #define MAXFRAG       (12240+MAXPACKLEN)/MAXPACKLEN
 // sliding window
-#define NBITS       3
+#define NBITS       4
 #define MAXSEQ      65535 //USHRT_MAX
 #define NRBUFS      (1<<(NBITS-1))
 // boolean variable
@@ -45,12 +46,21 @@ typedef uint8_t  swin_bool_t;        // boolean type
 #define BETA          LEARNING_RATE
 #define ALPHA         (1.0-LEARNING_RATE)
 //-----------------------------------------------------------------------------
+// classification of links according to the delay reported by network layer
+#define LINK_FAST_DELAY  4000
+#define LINK_AVER_DELAY  9000
+
+#define LINK_FAST_SWIN  (NRBUFS)
+#define LINK_AVER_SWIN  (NRBUFS/2)
+//-----------------------------------------------------------------------------
 // sliding window definition
 typedef struct sliding_window {
     // statistics
     int messages_processed;
     // refering address
     CnetAddr address;
+    // the size of sliding window (determined when we know delay)
+    swin_size_t swin_size;
     // queue timeouts management
     QUEUE fragment_queue;
     CnetTimerID flush_queue_timer;
