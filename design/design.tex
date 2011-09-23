@@ -173,10 +173,8 @@ void write_transport(CnetAddr destaddr, char* msg, size_t len);
 // write incoming message from network to transport
 void read_transport(msg_type_t kind, msg_len_t len, CnetAddr src, char* pkt);
 
+// signal transport
 void signal_transport(SIGNALKIND sg, SIGNALDATA data);
-
-// private functions:
-void ack_timeout(CnetEvent ev, CnetTimerID ti, CnetData data);
 
   \end{lstlisting}
    
@@ -204,20 +202,13 @@ Top level API:
    \begin{lstlisting}
 
 // read an incoming packet into network layer
-  void write_network(uint8_t kind, CnetAddr dest,uint16_t length, char* data);
+void write_network(uint8_t kind, CnetAddr dest,uint16_t length, char* data);
 
-// write an incoming message from datalink to network layer void read_network(int link, size_t length, char * datagram);
+// write an incoming message from datalink to network layer 
+void read_network(int link, size_t length, char * datagram);
 
-// send the datagram to the specified address
-void send_packet(CnetAddr addr, DATAGRAM datagram);
-// send the datagram to the specified link
-void send_packet_to_link(int link, DATAGRAM datagram);
-
-// broadcast packet to links
-void broadcast_packet(DATAGRAM dtg, int exclude_link);
-
-//allocated a datagram
-DATAGRAM alloc_datagram(uint8_t prot, int src, int dest, char *data, uint16_t len);
+// signal network
+void signal_network(SIGNALKIND sg, SIGNALDATA data);
 
   \end{lstlisting}  
             
@@ -234,7 +225,7 @@ Top level API:
 \begin{lstlisting}
 
 // process a discovery packet
- void do_discovery(int, DATAGRAM dtg);
+void do_discovery(int, DATAGRAM dtg);
 
 // poll our neighbors
 void pollNeighbors();
@@ -268,7 +259,7 @@ then the node broadcasts the routing request to all its neighbours.. A value (ho
 measure the lifetime of the request and is incremented every time the request is
 rebroadcast. After broadcasting a routing request a node waits for replies for
 a specified period of time. If it does receive replies then it chooses the link with the
-milimal value of $\log(hops) \times RTT$. The node also sets a timer for the request and when it expires the request
+minimal value of $\log(hops) \times RTT$. The node also sets a timer for the request and when it expires the request
 is broadcast again with an incremented hop. When a datagram arrives at a node it implements 
 one of the following three procedures depending on the type of the datagram:
 \begin{itemize}
@@ -292,9 +283,7 @@ the source.
 \item \noindent \textbf{Data:}
   If a node receives a datagram with a payload then it means that a path to the destination has
 already been discovered. Hence the node is either some intermediate node on this path or the 
-destination. In the former case it sends the datagram to the next node on the path. If the 
-node is the destination then it accepts the datagram, extracts the payload and hands it 
-to its transport layer.
+destination. In the former case it consults its forward route table and reverse route table to find the next link on the path. It then sends the datagram to the link found. If the node is the destination then it accepts the datagram, extracts the payload and hands it to its transport layer.
 \end{itemize}
 
     Top level API:  
@@ -303,18 +292,8 @@ to its transport layer.
 // route a packet
 void route(DATAGRAM);
 
-// check if a route for specified address exists in routing table
-int route_exists(CnetAddr address);
-
-// send a route request to find address
-void send_route_request(CnetAddr address);
-
 // process a routing packet
 void do_routing(int link,DATAGRAM datagram);
-
-// learn the routing table
-void learn_route_table(CnetAddr address, int hops, int link, int mtu,
-                              CnetTime total_delay, uint16_t req_id);
 
 // detect a link for outcoming message
 int get_next_link_for_dest(CnetAddr destaddr);
@@ -324,7 +303,6 @@ int get_mtu(CnetAddr dest, int need_send_mtu_request);
 
 // get propagation delay on the route to specified address
 int get_propagation_delay(CnetAddr);
-
 
   \end{lstlisting}
 \newpage
