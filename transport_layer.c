@@ -317,10 +317,6 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
             for (int i = 0; i < (int)swin[table_ind].numacks[ack_mod]; i++) {
                 if((swin[table_ind].arrivedacks[ack_mod][i] == FALSE) &&
                    (swin[table_ind].retransmitted[ack_mod][i] == FALSE)) {
-
-                    assert(swin[table_ind].timesent[ack_mod][i] > 0);
-                    assert(swin[table_ind].adaptive_timeout > 0);
-
                     // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
@@ -345,10 +341,6 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
             for (int i = 0; i <= (int)pkt.acksegid; i++) {
                 if((swin[table_ind].arrivedacks[ack_mod][i] == FALSE) &&
                    (swin[table_ind].retransmitted[ack_mod][i] == FALSE)) {
-
-                    //assert(swin[table_ind].timesent[ack_mod][i] > 0);
-                    assert(swin[table_ind].adaptive_timeout > 0);
-
                     // update timeout
                     measured = swin[table_ind].adaptive_timeout;
                     observed = nodeinfo.time_in_usec-swin[table_ind].timesent[ack_mod][i];
@@ -678,20 +670,4 @@ void signal_transport(SIGNALKIND sg, SIGNALDATA data) {
     }
 }
 //-----------------------------------------------------------------------------
-void shutdown_transport() {
-    destroy_sliding_window();
-    fprintf(stderr, "address: %d\n", nodeinfo.address);
-    fprintf(stderr, "\ttotal sent: %d\n", sent_messages);
-    fprintf(stderr, "\tretransmitted pack: %d\n", packets_retransmitted_total);
-    fprintf(stderr, "\tretransmitted frag: %lu\n", fragments_retransmitted_total);
-    fprintf(stderr, "\tseparate ack: %d\n", separate_ack);
-    fprintf(stderr, "\tnacks handled: %d\n", (int)nacks_handled);
-    fprintf(stderr, "\tout of order: %d\n", (int)out_of_order);
-    fprintf(stderr, "\tnacks received: %d\n", (int)nack_received);
-    fprintf(stderr, "\tdeviation timer: %f\n",((double)average_deviation/(double)observed_packets));
-    fprintf(stderr, "\tmeasured timer: %f\n", ((double)average_measured / (double) observed_packets));
-    fprintf(stderr, "\tobserved timer: %f\n", ((double)average_observed / (double) observed_packets));
-    fprintf(stderr, "\ttransport memory: %f(MB)\n", (double)total_memory / (double)(8*1024*1024));
-    shutdown_network();
-}
-//-----------------------------------------------------------------------------
+
