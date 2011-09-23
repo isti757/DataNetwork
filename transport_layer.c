@@ -301,6 +301,7 @@ void flush_queue(CnetEvent ev, CnetTimerID t1, CnetData data) {
         swin[table_ind].flush_queue_timer = NULLTIMER;
 }
 //-----------------------------------------------------------------------------
+// handles ACK by shifting sliding window
 void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
     swin_bool_t acked = FALSE;
 
@@ -382,6 +383,7 @@ void handle_ack(CnetAddr src, PACKET pkt, int table_ind) {
         CHECK(CNET_enable_application(src));
 }
 //-----------------------------------------------------------------------------
+// handle NACK by resending framexpected
 void handle_nack(CnetAddr src, int table_ind) {
     nacks_handled++;
     swin_seqno_t seqno = swin[table_ind].ackexpected % NRBUFS;
@@ -396,6 +398,7 @@ void handle_nack(CnetAddr src, int table_ind) {
     ack_timeout(-1, -1, data);
 }
 //-----------------------------------------------------------------------------
+// handle out of order data by sending a NACK
 void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
     // if not the segment expected send a NACK
     PACKET frg;
@@ -424,6 +427,7 @@ void handle_out_of_order_data(CnetAddr src, PACKET pkt, int table_ind) {
     }
 }
 //-----------------------------------------------------------------------------
+// handle incoming data by recording segments and shifting sliding window
 void handle_data(msg_type_t kind, msg_len_t length, CnetAddr src, PACKET pkt, int table_ind) {
     // avoid recomputing the modulus
     swin_seqno_t pkt_seqno_mod = pkt.seqno % NRBUFS;
